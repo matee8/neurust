@@ -13,3 +13,63 @@ keywords = ["neural_networks", "ai", "ml", "machine_learning"]
 categories = ["mathematics", "science", "algorithms"]
 
 [dependencies]
+
+[lints.rust]
+absolute-paths-not-starting-with-crate = "warn"
+ambiguous-negative-literals = "warn"
+closure-returning-async-block = "warn"
+deref-into-dyn-supertrait = "warn"
+elided-lifetimes-in-paths = "warn"
+explicit-outlives-requirements = "warn"
+if-let-rescope = "warn"
+impl-trait-overcaptures = "warn"
+impl-trait-redundant-captures = "warn"
+keyword-idents-2018 = "warn"
+keyword-idents-2024 = "warn"
+let-underscore-drop = "warn"
+macro-use-extern-crate = "warn"
+meta-variable-misuse = "warn"
+missing-copy-implementations = "warn"
+missing-debug-implementations = "warn"
+non-ascii-idents = "warn"
+redundant-imports = "warn"
+redundant-lifetimes = "warn"
+rust-2021-incompatible-closure-captures = "warn"
+rust-2021-incompatible-or-patterns = "warn"
+rust-2021-prefixes-incompatible-syntax = "warn"
+rust-2021-prelude-collisions = "warn"
+rust-2024-guarded-string-incompatible-syntax = "warn"
+rust-2024-incompatible-pat = "warn"
+rust-2024-prelude-collisions = "warn"
+single-use-lifetimes = "warn"
+tail-expr-drop-order = "warn"
+trivial-casts = "warn"
+trivial-numeric-casts = "warn"
+unit-bindings = "warn"
+unnameable-types = "warn"
+unreachable-pub = "warn"
+unstable-features = "warn"
+unused-crate-dependencies = "warn"
+unused-extern-crates = "warn"
+unused-import-braces = "warn"
+unused-lifetimes = "warn"
+unused-macro-rules = "warn"
+unused-qualifications = "warn"
+unused-results = "warn"
+variant-size-differences = "warn"
+
+[lints.clippy]
+cargo = { level = "warn", priority = -1 }
+complexity = { level = "warn", priority = -1 }
+correctness = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+perf = { level = "warn", priority = -1 }
+restriction = { level = "warn", priority = -1 }
+style = { level = "warn", priority = -1 }
+suspicious = { level = "warn", priority = -1 }
+all = { level = "warn", priority = -1 }
+blanket-clippy-restriction-lints = "allow"
+missing-docs-in-private-items = "allow"
+implicit-return = "allow"
+arithmetic-side-effects = "allow"
