@@ -1,0 +1,15 @@
+[package]
+name = "neurust"
+version = "0.1.0"
+authors = ["matee8 <graves-bluff-pesky@duck.com>"]
+edition = "2024"
+
+repository = "https://github.com/matee8/neurust.git"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+
+description = "Batteries included crate for building, training and running neural networks"
+keywords = ["neural_networks", "ai", "ml", "machine_learning"]
+categories = ["mathematics", "science", "algorithms"]
+
+[dependencies]
