@@ -43,6 +43,22 @@ pub struct Tensor<T> {
 }
 
 impl<T> Tensor<T> {
+    /// Returns the number of dimensions of the tensor.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use neurust::tensor;
+    ///
+    /// let t = tensor![[1.0, 2.0], [3.0, 4.0]];
+    /// assert_eq!(t.ndim(), 2);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn ndim(&self) -> usize {
+        self.inner.ndim()
+    }
+
     /// Returns the shape of the tensor as a slice of dimensions.
     ///
     /// # Examples
@@ -105,6 +121,28 @@ mod tests {
         );
 
         assert_eq!(tensor, expected)
+    }
+
+    #[test]
+    fn test_ndim_1d() {
+        let tensor = tensor![1.0, 2.0];
+
+        assert_eq!(tensor.ndim(), 1);
+    }
+
+    #[test]
+    fn test_ndim_2d() {
+        let tensor = tensor![[1.0, 2.0], [3.0, 4.0]];
+
+        assert_eq!(tensor.ndim(), 2);
+    }
+
+    #[test]
+    fn test_ndim_3d() {
+        let tensor =
+            tensor![[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]];
+
+        assert_eq!(tensor.ndim(), 3);
     }
 
     #[test]
