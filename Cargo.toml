@@ -13,6 +13,7 @@ keywords = ["neural_networks", "ai", "ml", "machine_learning"]
 categories = ["mathematics", "science", "algorithms"]
 
 [dependencies]
+ndarray = "0.16.1"
 
 [lints.rust]
 absolute-paths-not-starting-with-crate = "warn"
