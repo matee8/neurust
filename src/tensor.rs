@@ -1,4 +1,4 @@
-//! # The tensor module
+//! # The tensor module.
 //!
 //! This module provides the core data structure for representing
 //! multi-dimensional arrays, which are fundamental to all numerical
@@ -40,6 +40,24 @@ macro_rules! tensor {
 #[derive(Debug, PartialEq, Eq)]
 pub struct Tensor<T> {
     inner: ArrayD<T>,
+}
+
+impl<T> Tensor<T> {
+    /// Returns the shape of the tensor as a slice of dimensions.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use neurust::tensor;
+    ///
+    /// let t = tensor![[1.0, 2.0], [3.0, 4.0]];
+    /// assert_eq!(t.shape(), &[2, 2]);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn shape(&self) -> &[usize] {
+        self.inner.shape()
+    }
 }
 
 /// Provides interoperability with the `ndarray` crate.
@@ -87,5 +105,27 @@ mod tests {
         );
 
         assert_eq!(tensor, expected)
+    }
+
+    #[test]
+    fn test_shape_1d() {
+        let tensor = tensor![1.0, 2.0];
+
+        assert_eq!(tensor.shape(), &[2]);
+    }
+
+    #[test]
+    fn test_shape_2d() {
+        let tensor = tensor![[1.0, 2.0], [3.0, 4.0]];
+
+        assert_eq!(tensor.shape(), &[2, 2]);
+    }
+
+    #[test]
+    fn test_shape_3d() {
+        let tensor =
+            tensor![[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]];
+
+        assert_eq!(tensor.shape(), &[2, 2, 2]);
     }
 }
