@@ -4,7 +4,8 @@
 //! multi-dimensional arrays, which are fundamental to all numerical
 //! computations in the library.
 
-use ndarray::ArrayD;
+use ndarray::{ArrayD, IxDyn};
+use num_traits::identities::Zero;
 
 /// Creates a `Tensor` from nested arrays or vectors with a `vec!`-like syntax.
 /// The data type of the tensor's elements is inferred from the literals.
@@ -74,6 +75,31 @@ impl<T> Tensor<T> {
     pub fn shape(&self) -> &[usize] {
         self.inner.shape()
     }
+
+    /// Creates a `Tensor` with all elements set to zero.
+    ///
+    /// # Arguments
+    ///
+    /// - `shape` - A slice representing the desired dimensions of the tensor.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use neurust::tensor::Tensor;
+    ///
+    /// let t: Tensor<f32> = Tensor::zeros(&[2, 1]);
+    /// assert_eq!(t.shape(), &[2, 1]);
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn zeros(shape: &[usize]) -> Self
+    where
+        T: Clone + Zero,
+    {
+        let inner = ArrayD::zeros(IxDyn(shape));
+
+        Self { inner }
+    }
 }
 
 /// Provides interoperability with the `ndarray` crate.
@@ -89,6 +115,8 @@ impl<T> From<ArrayD<T>> for Tensor<T> {
 
 #[cfg(test)]
 mod tests {
+    use ndarray::{ArrayD, IxDyn};
+
     use crate::tensor::Tensor;
 
     #[test]
@@ -165,5 +193,21 @@ mod tests {
             tensor![[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]];
 
         assert_eq!(tensor.shape(), &[2, 2, 2]);
+    }
+
+    #[test]
+    fn test_zeros_tensor() {
+        let tensor = Tensor::<i32>::zeros(&[2, 3, 4]);
+        let expected: Tensor<i32> =
+            Tensor::from(ArrayD::zeros(IxDyn(&[2, 3, 4])));
+
+        assert_eq!(tensor, expected);
+    }
+
+    #[test]
+    fn test_zeros_shape() {
+        let tensor = Tensor::<i32>::zeros(&[2, 3, 4]);
+
+        assert_eq!(tensor.shape(), &[2, 3, 4]);
     }
 }
