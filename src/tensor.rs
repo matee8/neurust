@@ -76,11 +76,7 @@ impl<T> Tensor<T> {
         self.inner.shape()
     }
 
-    /// Creates a `Tensor` with all elements set to zero.
-    ///
-    /// # Arguments
-    ///
-    /// - `shape` - A slice representing the desired dimensions of the tensor.
+    /// Creates a `Tensor` with all elements set to zero, with the given shape.
     ///
     /// # Examples
     ///
