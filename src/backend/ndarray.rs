@@ -5,7 +5,7 @@ use core::marker::PhantomData;
 use ndarray::{ArrayD, IxDyn};
 use num_traits::Zero;
 
-use crate::tensor::Backend;
+use crate::backend::Backend;
 
 #[expect(
     clippy::module_name_repetitions,
@@ -44,7 +44,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{backends::ndarray::NdarrayBackend, tensor::Backend};
+    use crate::backend::{Backend, ndarray::NdarrayBackend};
 
     #[test]
     fn ndarray_zeros_has_correct_shape() {

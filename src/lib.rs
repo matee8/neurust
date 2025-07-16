@@ -1,2 +1,2 @@
-pub mod backends;
+pub mod backend;
 pub mod tensor;
