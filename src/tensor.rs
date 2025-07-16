@@ -62,8 +62,11 @@ where
             return Err(OperationError::ZeroDim);
         }
 
+        // SAFETY: `shape` does not contain any zeros.
+        let inner = unsafe { B::zeros(shape) };
+
         Ok(Self {
-            inner: B::zeros(shape),
+            inner,
             _marker: PhantomData,
         })
     }
@@ -94,7 +97,7 @@ mod tests {
             &tensor.shape
         }
 
-        fn zeros(shape: &[usize]) -> Self::Tensor {
+        unsafe fn zeros(shape: &[usize]) -> Self::Tensor {
             Self::Tensor {
                 shape: shape.to_owned(),
                 value: 0.0,

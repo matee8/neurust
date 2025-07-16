@@ -18,6 +18,11 @@ pub mod ndarray;
 /// (like `ndarray` or `nalgebra`) can be used as the underlying engine for
 /// tensor operations. This allows for flexibility and performance tuning
 /// by switching backends through feature flags. All functions are pure.
+///
+/// Some methods in this trait are marked `unsafe` because they do not perform
+/// any invariant checks (e.g., for shape compatibility). The caller (typically
+/// the `Tensor` wrapper) is responsible for ensuring all preconditions are met
+/// before calling these functions.
 pub trait Backend {
     /// The concrete tensor representation provided by the backend.
     type Tensor;
@@ -29,7 +34,12 @@ pub trait Backend {
     fn shape(tensor: &Self::Tensor) -> &[usize];
 
     /// Creates a tensor with all elements set to zero, with the given shape.
-    fn zeros(shape: &[usize]) -> Self::Tensor;
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the `shape` slice does not contain any
+    /// zeros.
+    unsafe fn zeros(shape: &[usize]) -> Self::Tensor;
 }
 
 cfg_if::cfg_if! {
