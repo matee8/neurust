@@ -15,6 +15,7 @@ categories = ["mathematics", "science", "algorithms"]
 [dependencies]
 ndarray = "0.16.1"
 num-traits = "0.2.19"
+thiserror = "2.0.12"
 
 [lints.rust]
 absolute-paths-not-starting-with-crate = "warn"
