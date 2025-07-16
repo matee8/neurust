@@ -12,9 +12,14 @@ description = "Batteries included crate for building, training and running neura
 keywords = ["neural_networks", "ai", "ml", "machine_learning"]
 categories = ["mathematics", "science", "algorithms"]
 
+[features]
+default = ["ndarray-backend"]
+ndarray-backend = ["dep:ndarray", "dep:num-traits"]
+
 [dependencies]
-ndarray = "0.16.1"
-num-traits = "0.2.19"
+cfg-if = "1.0.1"
+ndarray = { version = "0.16.1", optional = true }
+num-traits = { version = "0.2.19", optional = true }
 thiserror = "2.0.12"
 
 [lints.rust]
@@ -77,3 +82,4 @@ missing-docs-in-private-items = "allow"
 implicit-return = "allow"
 arithmetic-side-effects = "allow"
 self_named_module_files = "allow"
+module_name_repetitions = "allow"

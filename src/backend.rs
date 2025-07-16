@@ -31,3 +31,13 @@ pub trait Backend {
     /// Creates a tensor with all elements set to zero, with the given shape.
     fn zeros(shape: &[usize]) -> Self::Tensor;
 }
+
+cfg_if::cfg_if! {
+    if #[cfg(feature = "ndarray-backend")] {
+        pub type SelectedBackend<T> = ndarray::NdarrayBackend<T>;
+    } else {
+        compile_error!(
+            "A backend feature must be enabled. Available: `backend-ndarray`"
+        );
+    }
+}

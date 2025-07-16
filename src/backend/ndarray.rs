@@ -7,10 +7,6 @@ use num_traits::Zero;
 
 use crate::backend::Backend;
 
-#[expect(
-    clippy::module_name_repetitions,
-    reason = "this module only defines the backend for `ndarray`."
-)]
 /// Marker type for the `ndarray` backend.
 #[derive(Debug)]
 pub struct NdarrayBackend<T>
