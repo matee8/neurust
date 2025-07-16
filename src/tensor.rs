@@ -24,13 +24,19 @@ pub trait Backend {
     /// The concrete tensor representation provided by the backend.
     type Tensor;
 
+    /// Returns the number of dimensions of the tensor.
+    fn ndim(tensor: &Self::Tensor) -> usize;
+
+    /// Returns the shape of the tensor as a slice of dimensions.
+    fn shape(tensor: &Self::Tensor) -> &[usize];
+
     /// Creates a tensor with all elements set to zero, with the given shape.
     fn zeros(shape: &[usize]) -> Self::Tensor;
 }
 
 /// Errors that may arise during tensor creation or arithmetic.
 #[non_exhaustive]
-#[derive(Error, Debug, Clone, Copy)]
+#[derive(Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OperationError {
     #[error("dimensions must be non-zero")]
     ZeroDim,
@@ -54,6 +60,20 @@ impl<B> Tensor<B>
 where
     B: Backend,
 {
+    /// Returns the number of dimensions of the tensor.
+    #[inline]
+    #[must_use]
+    pub fn ndim(&self) -> usize {
+        B::ndim(&self.inner)
+    }
+
+    /// Returns the shape of the tensor as a slice of dimensions.
+    #[inline]
+    #[must_use]
+    pub fn shape(&self) -> &[usize] {
+        B::shape(&self.inner)
+    }
+
     /// Create a tensor containing only zeros.
     ///
     /// # Errors
@@ -62,7 +82,7 @@ where
     /// parameter value is 0.
     #[inline]
     pub fn zeros(shape: &[usize]) -> Result<Self, OperationError> {
-        if shape.iter().any(|&dim| dim == 0) {
+        if shape.contains(&0) {
             return Err(OperationError::ZeroDim);
         }
 
@@ -76,10 +96,12 @@ where
 #[cfg(test)]
 mod tests {
     use super::Tensor;
-    use crate::tensor::Backend;
+    use crate::tensor::{Backend, OperationError};
 
+    #[derive(Debug)]
     struct MockBackend;
 
+    #[derive(Debug)]
     struct MockTensor {
         shape: Vec<usize>,
         value: f32,
@@ -87,6 +109,14 @@ mod tests {
 
     impl Backend for MockBackend {
         type Tensor = MockTensor;
+
+        fn ndim(tensor: &Self::Tensor) -> usize {
+            tensor.shape.len()
+        }
+
+        fn shape(tensor: &Self::Tensor) -> &[usize] {
+            &tensor.shape
+        }
 
         fn zeros(shape: &[usize]) -> Self::Tensor {
             Self::Tensor {
@@ -116,5 +146,31 @@ mod tests {
         let tensor = Tensor::<MockBackend>::zeros(&[2, 3]).unwrap();
 
         assert_eq!(tensor.inner.value, 0.0);
+    }
+
+    #[test]
+    fn test_tensor_creation_zeros_fails_on_zero_dimension() {
+        let tensor = Tensor::<MockBackend>::zeros(&[2, 0]);
+
+        assert!(tensor.is_err());
+
+        let tensor_err = tensor.unwrap_err();
+
+        assert_eq!(tensor_err, OperationError::ZeroDim);
+    }
+
+    #[test]
+    fn test_tensor_shape_is_correct() {
+        let shape = &[2, 3];
+        let tensor = Tensor::<MockBackend>::zeros(shape).unwrap();
+
+        assert_eq!(tensor.shape(), shape);
+    }
+
+    #[test]
+    fn test_tensor_ndim_is_correct() {
+        let tensor = Tensor::<MockBackend>::zeros(&[2, 3]).unwrap();
+
+        assert_eq!(tensor.ndim(), 2);
     }
 }
