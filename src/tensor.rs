@@ -13,6 +13,7 @@ use crate::backend::Backend;
 #[non_exhaustive]
 #[derive(Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OperationError {
+    /// One of the dimensions is zero.
     #[error("dimensions must be non-zero")]
     ZeroDim,
 }
