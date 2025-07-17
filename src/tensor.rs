@@ -13,8 +13,11 @@ use crate::backend::Backend;
 #[non_exhaustive]
 #[derive(Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OperationError {
-    /// The product of axis lenghts exceeds `isize::MAX`.
-    #[error("product of axis lengths overflows `isize`")]
+    /// Either one of the dimensions, or the product of all dimensions exceeds
+    /// `isize::MAX`.
+    #[error(
+        "one of the dimensions, or product of all dimensions overflows `isize`"
+    )]
     ShapeOverflow,
     /// One of the dimensions is zero.
     #[error("dimensions must be non-zero")]
