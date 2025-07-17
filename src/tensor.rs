@@ -339,7 +339,7 @@ mod tests {
     fn tensor_validation_fails_on_overflow() {
         let isize_max = usize::try_from(isize::MAX).unwrap();
         let result =
-            Tensor::<MockBackend>::get_validated_num_elements(&[isize_max, 2]);
+            Tensor::<MockBackend>::get_validated_num_elements(&[isize_max, 3]);
 
         assert!(result.is_err());
 
