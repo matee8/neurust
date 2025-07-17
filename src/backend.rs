@@ -14,12 +14,12 @@ pub mod ndarray;
 /// A trait that defines the contract for tensor operations that every
 /// backend must fulfill.
 ///
-/// The `Backend` trait is the core abstraction of the tensor module. It
-/// provides a generic interface for tensor creation, manipulation, and
-/// computation. By implementing this trait, different computation libraries
-/// (like [`ndarray`] or `nalgebra`) can be used as the underlying engine for
-/// tensor operations. This allows for flexibility and performance tuning
-/// by switching backends through feature flags. All functions are pure.
+/// The `Backend` trait is the core abstraction of this module. It provides a
+/// generic interface for tensor creation, manipulation, and computation. By
+/// implementing this trait, different computation libraries (like [`ndarray`]
+/// or `nalgebra`) can be used as the underlying engine for tensor operations.
+/// This allows for flexibility and performance tuning by switching backends
+/// through feature flags. All functions are pure.
 ///
 /// Some methods in this trait are marked `unsafe` because they do not perform
 /// any invariant checks (e.g., for shape compatibility). The caller (typically
