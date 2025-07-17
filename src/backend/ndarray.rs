@@ -1,4 +1,4 @@
-//! `ndarray` crate backend.
+//! [`ndarray`] crate backend.
 
 use core::marker::PhantomData;
 
@@ -7,7 +7,7 @@ use num_traits::{One, Zero};
 
 use crate::backend::Backend;
 
-/// Marker type for the `ndarray` backend.
+/// Marker type for the [`ndarray`] backend.
 #[derive(Debug)]
 pub struct NdarrayBackend<T>
 where

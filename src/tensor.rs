@@ -1,7 +1,7 @@
 //! # Generic tensor module.
 //!
-//! This module provides a generic `Tensor` structure that is parameterized by
-//! a backend.
+//! This module provides a generic [`Tensor`] structure that is parameterized by
+//! a [backend](crate::backend::Backend).
 
 use core::marker::PhantomData;
 
@@ -14,7 +14,7 @@ use crate::backend::Backend;
 #[derive(Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OperationError {
     /// Either one of the dimensions, or the product of all dimensions exceeds
-    /// `isize::MAX`.
+    /// [`isize::MAX`].
     #[error(
         "one of the dimensions, or product of all dimensions overflows `isize`"
     )]
@@ -53,7 +53,7 @@ where
     ///
     /// # Errors
     ///
-    /// See the error notes on `Tensor::zeros()`.
+    /// See the error notes on [`Tensor::zeros()`].
     #[inline]
     pub fn ones(shape: &[usize]) -> Result<Self, OperationError> {
         Self::validate_shape(shape)?;
@@ -79,10 +79,10 @@ where
     ///
     /// # Errors
     ///
-    /// This method returns `Err` if:
+    /// This method returns [`Err`](OperationError) if:
     ///
     /// - one of the dimensions in the parameter value is 0,
-    /// - any of the axis lengths overflows `isize`,
+    /// - any of the axis lengths overflows [`isize::MAX`],
     /// - the product of axis lengths overflows `isize::MAX`.
     #[inline]
     pub fn zeros(shape: &[usize]) -> Result<Self, OperationError> {
