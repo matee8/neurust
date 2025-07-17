@@ -9,10 +9,13 @@ use thiserror::Error;
 
 use crate::backend::Backend;
 
-/// Errors that may arise during tensor creation or arithmetic.
+/// An error related to the shape of a tensor during its creation.
+///
+/// This error is returned by constructors like [`Tensor::zeros()`] when the
+/// provided shape is invalid or its properties exceed system limits.
 #[non_exhaustive]
 #[derive(Error, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum OperationError {
+pub enum ShapeError {
     /// The number of elements provided does not match the given shape.
     #[error(
         r#"the number of elements in the data does not match the number of
@@ -52,7 +55,7 @@ where
     ///
     /// # Errors
     ///
-    /// This method will return an [`Err`](OperationError) if the shape is
+    /// This method will return an [`Err`](ShapeError) if the shape is
     /// invalid (see the Errors section on [`Tensor::ones()`]) or if the number
     /// of elements in `data` does not match the number of elements required by
     /// the `shape`. (That is, the number of elements equals to the product of
@@ -61,11 +64,11 @@ where
     pub fn from_vec(
         data: Vec<B::Primitive>,
         shape: &[usize],
-    ) -> Result<Self, OperationError> {
+    ) -> Result<Self, ShapeError> {
         let expected_elements = Self::get_validated_num_elements(shape)?;
 
         if data.len() != expected_elements {
-            return Err(OperationError::ElementCountMismatch);
+            return Err(ShapeError::ElementCountMismatch);
         }
 
         // SAFETY: The shape has been validated and the element count matches
@@ -91,7 +94,7 @@ where
     ///
     /// See the error notes on [`Tensor::zeros()`].
     #[inline]
-    pub fn ones(shape: &[usize]) -> Result<Self, OperationError> {
+    pub fn ones(shape: &[usize]) -> Result<Self, ShapeError> {
         let _: usize = Self::get_validated_num_elements(shape)?;
 
         // SAFETY: `shape` does not contain any zeros and product of dimensions
@@ -115,13 +118,13 @@ where
     ///
     /// # Errors
     ///
-    /// This method returns [`Err`](OperationError) if:
+    /// This method returns [`Err`](ShapeError) if:
     ///
     /// - one of the dimensions in the parameter value is 0,
     /// - any of the axis lengths overflows [`isize::MAX`],
     /// - the product of axis lengths overflows `isize::MAX`.
     #[inline]
-    pub fn zeros(shape: &[usize]) -> Result<Self, OperationError> {
+    pub fn zeros(shape: &[usize]) -> Result<Self, ShapeError> {
         let _: usize = Self::get_validated_num_elements(shape)?;
 
         // SAFETY: `shape` does not contain any zeros, no dimensions overflow
@@ -146,19 +149,19 @@ where
     /// - overflow when calculating the total number of elements.
     fn get_validated_num_elements(
         shape: &[usize],
-    ) -> Result<usize, OperationError> {
+    ) -> Result<usize, ShapeError> {
         if shape.contains(&0) {
-            return Err(OperationError::ZeroDim);
+            return Err(ShapeError::ZeroDim);
         }
 
         let num_elements = shape
             .iter()
             .try_fold(1_usize, |prod, &dim| prod.checked_mul(dim))
-            .ok_or(OperationError::ShapeOverflow)?;
+            .ok_or(ShapeError::ShapeOverflow)?;
 
         let _: isize = num_elements
             .try_into()
-            .map_err(|_| OperationError::ShapeOverflow)?;
+            .map_err(|_| ShapeError::ShapeOverflow)?;
 
         Ok(num_elements)
     }
@@ -167,7 +170,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::Tensor;
-    use crate::tensor::{Backend, OperationError};
+    use crate::tensor::{Backend, ShapeError};
 
     #[derive(Debug)]
     struct MockBackend;
@@ -247,7 +250,7 @@ mod tests {
 
         let tensor_err = tensor.unwrap_err();
 
-        assert_eq!(tensor_err, OperationError::ZeroDim);
+        assert_eq!(tensor_err, ShapeError::ZeroDim);
     }
 
     #[test]
@@ -259,7 +262,7 @@ mod tests {
 
         let tensor_err = tensor.unwrap_err();
 
-        assert_eq!(tensor_err, OperationError::ShapeOverflow);
+        assert_eq!(tensor_err, ShapeError::ShapeOverflow);
     }
 
     #[test]
@@ -292,7 +295,7 @@ mod tests {
 
         let tensor_err = tensor.unwrap_err();
 
-        assert_eq!(tensor_err, OperationError::ZeroDim);
+        assert_eq!(tensor_err, ShapeError::ZeroDim);
     }
 
     #[test]
@@ -304,7 +307,7 @@ mod tests {
 
         let tensor_err = tensor.unwrap_err();
 
-        assert_eq!(tensor_err, OperationError::ShapeOverflow);
+        assert_eq!(tensor_err, ShapeError::ShapeOverflow);
     }
 
     #[test]
@@ -332,7 +335,7 @@ mod tests {
 
         let err = result.unwrap_err();
 
-        assert_eq!(err, OperationError::ShapeOverflow);
+        assert_eq!(err, ShapeError::ShapeOverflow);
     }
 
     #[test]
@@ -345,7 +348,7 @@ mod tests {
 
         let err = result.unwrap_err();
 
-        assert_eq!(err, OperationError::ShapeOverflow);
+        assert_eq!(err, ShapeError::ShapeOverflow);
     }
 
     #[test]
@@ -363,7 +366,7 @@ mod tests {
 
         let err = result.unwrap_err();
 
-        assert_eq!(err, OperationError::ZeroDim);
+        assert_eq!(err, ShapeError::ZeroDim);
     }
 
     #[test]
@@ -402,7 +405,7 @@ mod tests {
 
         let tensor_err = tensor.unwrap_err();
 
-        assert_eq!(tensor_err, OperationError::ElementCountMismatch);
+        assert_eq!(tensor_err, ShapeError::ElementCountMismatch);
     }
 
     #[test]
@@ -414,7 +417,7 @@ mod tests {
 
         let tensor_err = tensor.unwrap_err();
 
-        assert_eq!(tensor_err, OperationError::ElementCountMismatch);
+        assert_eq!(tensor_err, ShapeError::ElementCountMismatch);
     }
 
     #[test]
@@ -426,6 +429,6 @@ mod tests {
 
         let tensor_err = tensor.unwrap_err();
 
-        assert_eq!(tensor_err, OperationError::ZeroDim);
+        assert_eq!(tensor_err, ShapeError::ZeroDim);
     }
 }
