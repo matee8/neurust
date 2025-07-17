@@ -62,9 +62,7 @@ where
         data: Vec<B::Primitive>,
         shape: &[usize],
     ) -> Result<Self, OperationError> {
-        Self::validate_shape(shape)?;
-
-        let expected_elements = shape.iter().product::<usize>();
+        let expected_elements = Self::get_validated_num_elements(shape)?;
 
         if data.len() != expected_elements {
             return Err(OperationError::ElementCountMismatch);
@@ -94,7 +92,7 @@ where
     /// See the error notes on [`Tensor::zeros()`].
     #[inline]
     pub fn ones(shape: &[usize]) -> Result<Self, OperationError> {
-        Self::validate_shape(shape)?;
+        let _: usize = Self::get_validated_num_elements(shape)?;
 
         // SAFETY: `shape` does not contain any zeros and product of dimensions
         // does not overflow `isize::MAX`.
@@ -124,7 +122,7 @@ where
     /// - the product of axis lengths overflows `isize::MAX`.
     #[inline]
     pub fn zeros(shape: &[usize]) -> Result<Self, OperationError> {
-        Self::validate_shape(shape)?;
+        let _: usize = Self::get_validated_num_elements(shape)?;
 
         // SAFETY: `shape` does not contain any zeros, no dimensions overflow
         // `isize`, the product of dimensions does not overflow `isize::MAX`.
@@ -136,27 +134,33 @@ where
         })
     }
 
-    /// Validates shape for tensor creation.
+    /// Ensures that all preconditions for creating a tensor from a shape are
+    /// met, and, on success, returns the product of the dimensions (the number
+    /// of elements).
     ///
-    /// This private helper function ensures that all preconditions for creating
-    /// a tensor from a shape are met. It checks for:
+    /// # Errors
+    ///
+    /// Returns an error if:
     /// - zero-sized dimensions,
     /// - any of the dimensions overflowing `isize`,
     /// - overflow when calculating the total number of elements.
-    fn validate_shape(shape: &[usize]) -> Result<(), OperationError> {
+    fn get_validated_num_elements(
+        shape: &[usize],
+    ) -> Result<usize, OperationError> {
         if shape.contains(&0) {
             return Err(OperationError::ZeroDim);
         }
 
-        let _: isize = shape.iter().try_fold(1_isize, |product, &dim| {
-            let dim_isize = isize::try_from(dim)
-                .map_err(|_| OperationError::ShapeOverflow)?;
-            product
-                .checked_mul(dim_isize)
-                .ok_or(OperationError::ShapeOverflow)
-        })?;
+        let num_elements = shape
+            .iter()
+            .try_fold(1_usize, |prod, &dim| prod.checked_mul(dim))
+            .ok_or(OperationError::ShapeOverflow)?;
 
-        Ok(())
+        let _: isize = num_elements
+            .try_into()
+            .map_err(|_| OperationError::ShapeOverflow)?;
+
+        Ok(num_elements)
     }
 }
 
@@ -281,17 +285,6 @@ mod tests {
     }
 
     #[test]
-    fn test_tensor_validation_fails_on_zero_dimensions() {
-        let result = Tensor::<MockBackend>::validate_shape(&[2, 0]);
-
-        assert!(result.is_err());
-
-        let err = result.unwrap_err();
-
-        assert_eq!(err, OperationError::ZeroDim);
-    }
-
-    #[test]
     fn test_tensor_creation_ones_fails_on_zero_dimension() {
         let tensor = Tensor::<MockBackend>::ones(&[2, 0]);
 
@@ -332,7 +325,8 @@ mod tests {
     #[test]
     fn test_tensor_validation_fails_on_too_large_usize() {
         let usize_max = usize::MAX;
-        let result = Tensor::<MockBackend>::validate_shape(&[usize_max, 1]);
+        let result =
+            Tensor::<MockBackend>::get_validated_num_elements(&[usize_max, 1]);
 
         assert!(result.is_err());
 
@@ -344,7 +338,8 @@ mod tests {
     #[test]
     fn test_tensor_validation_fails_on_overflow() {
         let isize_max = usize::try_from(isize::MAX).unwrap();
-        let result = Tensor::<MockBackend>::validate_shape(&[isize_max, 2]);
+        let result =
+            Tensor::<MockBackend>::get_validated_num_elements(&[isize_max, 2]);
 
         assert!(result.is_err());
 
@@ -355,9 +350,34 @@ mod tests {
 
     #[test]
     fn test_tensor_validation_succeeds_on_correct_shape() {
-        let result = Tensor::<MockBackend>::validate_shape(&[2, 3]);
+        let result = Tensor::<MockBackend>::get_validated_num_elements(&[2, 3]);
 
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_tensor_validation_fails_on_zero_dimensions() {
+        let result = Tensor::<MockBackend>::get_validated_num_elements(&[2, 0]);
+
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+
+        assert_eq!(err, OperationError::ZeroDim);
+    }
+
+    #[test]
+    fn test_tensor_validation_returns_num_of_elements() {
+        let shape = &[2, 3];
+        let expected_elements: usize = shape.iter().product();
+
+        let result = Tensor::<MockBackend>::get_validated_num_elements(shape);
+
+        assert!(result.is_ok());
+
+        let result = result.unwrap();
+
+        assert_eq!(result, expected_elements);
     }
 
     #[test]
