@@ -30,6 +30,13 @@ pub trait Backend {
     /// Returns the number of dimensions of the tensor.
     fn ndim(tensor: &Self::Tensor) -> usize;
 
+    /// Creates a tensor with all elements set to one, with the given shape.
+    ///
+    /// # Safety
+    ///
+    /// See the safety notes for `Backend::zeros()`.
+    unsafe fn ones(shape: &[usize]) -> Self::Tensor;
+
     /// Returns the shape of the tensor as a slice of dimensions.
     fn shape(tensor: &Self::Tensor) -> &[usize];
 
@@ -38,8 +45,8 @@ pub trait Backend {
     /// # Safety
     ///
     /// The caller must ensure that the `shape` slice does not contain any
-    /// zeros, and that the product of axis lengths does not overflow
-    /// `isize::MAX`.
+    /// zeros, no dimensions overflow `isize`, and the product of axis lengths
+    /// does not overflow `isize::MAX`.
     unsafe fn zeros(shape: &[usize]) -> Self::Tensor;
 }
 

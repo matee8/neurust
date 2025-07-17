@@ -46,6 +46,25 @@ where
         B::ndim(&self.inner)
     }
 
+    /// Creates a tensor containing only ones.
+    ///
+    /// # Errors
+    ///
+    /// See the error notes on `Tensor::zeros()`.
+    #[inline]
+    pub fn ones(shape: &[usize]) -> Result<Self, OperationError> {
+        Self::validate_shape(shape)?;
+
+        // SAFETY: `shape` does not contain any zeros and product of dimensions
+        // does not overflow `isize::MAX`.
+        let inner = unsafe { B::ones(shape) };
+
+        Ok(Self {
+            inner,
+            _marker: PhantomData,
+        })
+    }
+
     /// Returns the shape of the tensor as a slice of dimensions.
     #[inline]
     #[must_use]
@@ -57,10 +76,33 @@ where
     ///
     /// # Errors
     ///
-    /// This method returns `Err` if, and only if, one of the dimensions in the
-    /// parameter value is 0.
+    /// This method returns `Err` if:
+    ///
+    /// - one of the dimensions in the parameter value is 0,
+    /// - any of the axis lengths overflows `isize`,
+    /// - the product of axis lengths overflows `isize::MAX`.
     #[inline]
     pub fn zeros(shape: &[usize]) -> Result<Self, OperationError> {
+        Self::validate_shape(shape)?;
+
+        // SAFETY: `shape` does not contain any zeros, no dimensions overflow
+        // `isize`, the product of dimensions does not overflow `isize::MAX`.
+        let inner = unsafe { B::zeros(shape) };
+
+        Ok(Self {
+            inner,
+            _marker: PhantomData,
+        })
+    }
+
+    /// Validates shape for tensor creation.
+    ///
+    /// This private helper function ensures that all preconditions for creating
+    /// a tensor from a shape are met. It checks for:
+    /// - zero-sized dimensions,
+    /// - any of the dimensions overflowing `isize`,
+    /// - overflow when calculating the total number of elements.
+    fn validate_shape(shape: &[usize]) -> Result<(), OperationError> {
         if shape.contains(&0) {
             return Err(OperationError::ZeroDim);
         }
@@ -73,14 +115,7 @@ where
                 .ok_or(OperationError::ShapeOverflow)
         })?;
 
-        // SAFETY: `shape` does not contain any zeros and product of dimensions
-        // does not overflow `isize::MAX`.
-        let inner = unsafe { B::zeros(shape) };
-
-        Ok(Self {
-            inner,
-            _marker: PhantomData,
-        })
+        Ok(())
     }
 }
 
@@ -103,6 +138,13 @@ mod tests {
 
         fn ndim(tensor: &Self::Tensor) -> usize {
             tensor.shape.len()
+        }
+
+        unsafe fn ones(shape: &[usize]) -> Self::Tensor {
+            Self::Tensor {
+                shape: shape.to_owned(),
+                value: 1.0,
+            }
         }
 
         fn shape(tensor: &Self::Tensor) -> &[usize] {
@@ -163,6 +205,62 @@ mod tests {
     }
 
     #[test]
+    fn test_tensor_creation_ones_works() {
+        let tensor = Tensor::<MockBackend>::ones(&[2, 3]);
+
+        assert!(tensor.is_ok());
+    }
+
+    #[test]
+    fn test_tensor_creation_ones_has_right_shape() {
+        let shape = &[2, 3];
+        let tensor = Tensor::<MockBackend>::ones(shape).unwrap();
+
+        assert_eq!(tensor.inner.shape, shape);
+    }
+
+    #[test]
+    fn test_tensor_creation_ones_has_right_values() {
+        let tensor = Tensor::<MockBackend>::ones(&[2, 3]).unwrap();
+
+        assert_eq!(tensor.inner.value, 1.0);
+    }
+
+    #[test]
+    fn test_tensor_validation_fails_on_zero_dimensions() {
+        let result = Tensor::<MockBackend>::validate_shape(&[2, 0]);
+
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+
+        assert_eq!(err, OperationError::ZeroDim);
+    }
+
+    #[test]
+    fn test_tensor_creation_ones_fails_on_zero_dimension() {
+        let tensor = Tensor::<MockBackend>::ones(&[2, 0]);
+
+        assert!(tensor.is_err());
+
+        let tensor_err = tensor.unwrap_err();
+
+        assert_eq!(tensor_err, OperationError::ZeroDim);
+    }
+
+    #[test]
+    fn test_tensor_creation_ones_fails_on_overflow() {
+        let isize_max = usize::try_from(isize::MAX).unwrap();
+        let tensor = Tensor::<MockBackend>::ones(&[isize_max, 2]);
+
+        assert!(tensor.is_err());
+
+        let tensor_err = tensor.unwrap_err();
+
+        assert_eq!(tensor_err, OperationError::ShapeOverflow);
+    }
+
+    #[test]
     fn test_tensor_shape_is_correct() {
         let shape = &[2, 3];
         let tensor = Tensor::<MockBackend>::zeros(shape).unwrap();
@@ -175,5 +273,36 @@ mod tests {
         let tensor = Tensor::<MockBackend>::zeros(&[2, 3]).unwrap();
 
         assert_eq!(tensor.ndim(), 2);
+    }
+
+    #[test]
+    fn test_tensor_validation_fails_on_too_large_usize() {
+        let usize_max = usize::MAX;
+        let result = Tensor::<MockBackend>::validate_shape(&[usize_max, 1]);
+
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+
+        assert_eq!(err, OperationError::ShapeOverflow);
+    }
+
+    #[test]
+    fn test_tensor_validation_fails_on_overflow() {
+        let isize_max = usize::try_from(isize::MAX).unwrap();
+        let result = Tensor::<MockBackend>::validate_shape(&[isize_max, 2]);
+
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+
+        assert_eq!(err, OperationError::ShapeOverflow);
+    }
+
+    #[test]
+    fn test_tensor_validation_succeeds_on_correct_shape() {
+        let result = Tensor::<MockBackend>::validate_shape(&[2, 3]);
+
+        assert!(result.is_ok());
     }
 }
