@@ -24,6 +24,16 @@ where
     type Tensor = ArrayD<T>;
 
     #[inline]
+    unsafe fn from_vec(
+        data: Vec<Self::Primitive>,
+        shape: &[usize],
+    ) -> Self::Tensor {
+        // SAFETY: The caller has already guaranteed that the shape is valid
+        // and the element count in `data` matches the shape's requirements.
+        unsafe { ArrayD::from_shape_vec_unchecked(IxDyn(shape), data) }
+    }
+
+    #[inline]
     fn ndim(tensor: &Self::Tensor) -> usize {
         tensor.ndim()
     }
@@ -92,5 +102,16 @@ mod tests {
         let array = unsafe { NdarrayBackend::<f32>::zeros(shape) };
 
         assert_eq!(NdarrayBackend::ndim(&array), shape.len());
+    }
+
+    #[test]
+    fn ndarray_from_vec_is_correct() {
+        let shape = &[2, 3];
+        let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let data_clone = data.clone();
+        let array = unsafe { NdarrayBackend::<f32>::from_vec(data, shape) };
+
+        assert_eq!(array.shape(), shape);
+        assert_eq!(array.into_raw_vec_and_offset().0, data_clone);
     }
 }

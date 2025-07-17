@@ -13,6 +13,12 @@ use crate::backend::Backend;
 #[non_exhaustive]
 #[derive(Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OperationError {
+    /// The number of elements provided does not match the given shape.
+    #[error(
+        r#"the number of elements in the data does not match the number of
+        elements required by the shape"#
+    )]
+    ElementCountMismatch,
     /// Either one of the dimensions, or the product of all dimensions exceeds
     /// [`isize::MAX`].
     #[error(
@@ -42,6 +48,38 @@ impl<B> Tensor<B>
 where
     B: Backend,
 {
+    /// Creates a tensor from a vector and a shape.
+    ///
+    /// # Errors
+    ///
+    /// This method will return an [`Err`](OperationError) if the shape is
+    /// invalid (see the Errors section on [`Tensor::ones()`]) or if the number
+    /// of elements in `data` does not match the number of elements required by
+    /// the `shape`. (That is, the number of elements equals to the product of
+    /// the dimensions in `shape`.)
+    #[inline]
+    pub fn from_vec(
+        data: Vec<B::Primitive>,
+        shape: &[usize],
+    ) -> Result<Self, OperationError> {
+        Self::validate_shape(shape)?;
+
+        let expected_elements = shape.iter().product::<usize>();
+
+        if data.len() != expected_elements {
+            return Err(OperationError::ElementCountMismatch);
+        }
+
+        // SAFETY: The shape has been validated and the element count matches
+        // the product of the dimensions.
+        let inner = unsafe { B::from_vec(data, shape) };
+
+        Ok(Self {
+            inner,
+            _marker: PhantomData,
+        })
+    }
+
     /// Returns the number of dimensions of the tensor.
     #[inline]
     #[must_use]
@@ -139,6 +177,18 @@ mod tests {
     impl Backend for MockBackend {
         type Primitive = f32;
         type Tensor = MockTensor;
+
+        unsafe fn from_vec(
+            data: Vec<Self::Primitive>,
+            shape: &[usize],
+        ) -> Self::Tensor {
+            let value = data.first().copied().unwrap_or_default();
+
+            Self::Tensor {
+                shape: shape.to_owned(),
+                value,
+            }
+        }
 
         fn ndim(tensor: &Self::Tensor) -> usize {
             tensor.shape.len()
@@ -308,5 +358,54 @@ mod tests {
         let result = Tensor::<MockBackend>::validate_shape(&[2, 3]);
 
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_tensor_creation_from_vec_succeeds() {
+        let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let shape = &[2, 3];
+        let tensor = Tensor::<MockBackend>::from_vec(data, shape);
+
+        assert!(tensor.is_ok());
+
+        let tensor = tensor.unwrap();
+
+        assert_eq!(tensor.shape(), shape);
+    }
+
+    #[test]
+    fn test_tensor_creation_from_vec_fails_on_too_few_elements() {
+        let data = vec![1.0, 2.0, 3.0];
+        let tensor = Tensor::<MockBackend>::from_vec(data, &[2, 3]);
+
+        assert!(tensor.is_err());
+
+        let tensor_err = tensor.unwrap_err();
+
+        assert_eq!(tensor_err, OperationError::ElementCountMismatch);
+    }
+
+    #[test]
+    fn test_tensor_creation_from_vec_fails_on_too_many_elements() {
+        let data = vec![1.0, 2.0, 3.0];
+        let tensor = Tensor::<MockBackend>::from_vec(data, &[1, 2]);
+
+        assert!(tensor.is_err());
+
+        let tensor_err = tensor.unwrap_err();
+
+        assert_eq!(tensor_err, OperationError::ElementCountMismatch);
+    }
+
+    #[test]
+    fn test_tensor_creation_from_vec_fails_on_invalid_shape() {
+        let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let tensor = Tensor::<MockBackend>::from_vec(data, &[2, 0]);
+
+        assert!(tensor.is_err());
+
+        let tensor_err = tensor.unwrap_err();
+
+        assert_eq!(tensor_err, OperationError::ZeroDim);
     }
 }

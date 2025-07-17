@@ -7,6 +7,8 @@
 //! The default backend is [`ndarray`] and can be swapped out using crate
 //! feature flags.
 
+use num_traits::{One, Zero};
+
 pub mod ndarray;
 
 /// A trait that defines the contract for tensor operations that every
@@ -25,10 +27,24 @@ pub mod ndarray;
 /// all preconditions are met before calling these functions.
 pub trait Backend {
     /// The element type of the tensors.
-    type Primitive: Clone + num_traits::Zero + num_traits::One;
+    type Primitive: Clone + Zero + One;
 
     /// The concrete tensor representation provided by the backend.
     type Tensor;
+
+    /// Creates a tensor from a vector of data and a shape.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that:
+    /// -   The `shape` is valid (no zero dimensions, no overflow, see safety
+    ///     notes on [`Backend::zeros()`]).
+    /// -   The number of elements in `data` is equal to the product of the
+    ///     `shape`'s dimensions.
+    unsafe fn from_vec(
+        data: Vec<Self::Primitive>,
+        shape: &[usize],
+    ) -> Self::Tensor;
 
     /// Returns the number of dimensions of the tensor.
     fn ndim(tensor: &Self::Tensor) -> usize;
