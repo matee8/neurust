@@ -24,6 +24,9 @@ pub mod ndarray;
 /// the [`Tensor`](crate::tensor::Tensor) wrapper) is responsible for ensuring
 /// all preconditions are met before calling these functions.
 pub trait Backend {
+    /// The element type of the tensors.
+    type Primitive: Clone + num_traits::Zero + num_traits::One;
+
     /// The concrete tensor representation provided by the backend.
     type Tensor;
 

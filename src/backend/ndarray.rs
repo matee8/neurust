@@ -20,6 +20,7 @@ impl<T> Backend for NdarrayBackend<T>
 where
     T: Clone + Zero + One,
 {
+    type Primitive = T;
     type Tensor = ArrayD<T>;
 
     #[inline]

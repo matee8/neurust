@@ -133,10 +133,11 @@ mod tests {
     #[derive(Debug)]
     struct MockTensor {
         shape: Vec<usize>,
-        value: f32,
+        value: <MockBackend as Backend>::Primitive,
     }
 
     impl Backend for MockBackend {
+        type Primitive = f32;
         type Tensor = MockTensor;
 
         fn ndim(tensor: &Self::Tensor) -> usize {
