@@ -218,14 +218,14 @@ mod tests {
     }
 
     #[test]
-    fn test_tensor_creation_zeros_works() {
+    fn tensor_creation_zeros_works() {
         let tensor = Tensor::<MockBackend>::zeros(&[2, 3]);
 
         assert!(tensor.is_ok());
     }
 
     #[test]
-    fn test_tensor_creation_zeros_has_right_shape() {
+    fn tensor_creation_zeros_has_right_shape() {
         let shape = &[2, 3];
         let tensor = Tensor::<MockBackend>::zeros(shape).unwrap();
 
@@ -233,14 +233,14 @@ mod tests {
     }
 
     #[test]
-    fn test_tensor_creation_zeros_has_right_value() {
+    fn tensor_creation_zeros_has_right_value() {
         let tensor = Tensor::<MockBackend>::zeros(&[2, 3]).unwrap();
 
         assert_eq!(tensor.inner.value, 0.0);
     }
 
     #[test]
-    fn test_tensor_creation_zeros_fails_on_zero_dimension() {
+    fn tensor_creation_zeros_fails_on_zero_dimension() {
         let tensor = Tensor::<MockBackend>::zeros(&[2, 0]);
 
         assert!(tensor.is_err());
@@ -251,7 +251,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tensor_creation_zeros_fails_on_overflow() {
+    fn tensor_creation_zeros_fails_on_overflow() {
         let isize_max = usize::try_from(isize::MAX).unwrap();
         let tensor = Tensor::<MockBackend>::zeros(&[isize_max, 2]);
 
@@ -263,14 +263,14 @@ mod tests {
     }
 
     #[test]
-    fn test_tensor_creation_ones_works() {
+    fn tensor_creation_ones_works() {
         let tensor = Tensor::<MockBackend>::ones(&[2, 3]);
 
         assert!(tensor.is_ok());
     }
 
     #[test]
-    fn test_tensor_creation_ones_has_right_shape() {
+    fn tensor_creation_ones_has_right_shape() {
         let shape = &[2, 3];
         let tensor = Tensor::<MockBackend>::ones(shape).unwrap();
 
@@ -278,14 +278,14 @@ mod tests {
     }
 
     #[test]
-    fn test_tensor_creation_ones_has_right_values() {
+    fn tensor_creation_ones_has_right_values() {
         let tensor = Tensor::<MockBackend>::ones(&[2, 3]).unwrap();
 
         assert_eq!(tensor.inner.value, 1.0);
     }
 
     #[test]
-    fn test_tensor_creation_ones_fails_on_zero_dimension() {
+    fn tensor_creation_ones_fails_on_zero_dimension() {
         let tensor = Tensor::<MockBackend>::ones(&[2, 0]);
 
         assert!(tensor.is_err());
@@ -296,7 +296,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tensor_creation_ones_fails_on_overflow() {
+    fn tensor_creation_ones_fails_on_overflow() {
         let isize_max = usize::try_from(isize::MAX).unwrap();
         let tensor = Tensor::<MockBackend>::ones(&[isize_max, 2]);
 
@@ -308,7 +308,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tensor_shape_is_correct() {
+    fn tensor_shape_is_correct() {
         let shape = &[2, 3];
         let tensor = Tensor::<MockBackend>::zeros(shape).unwrap();
 
@@ -316,14 +316,14 @@ mod tests {
     }
 
     #[test]
-    fn test_tensor_ndim_is_correct() {
+    fn tensor_ndim_is_correct() {
         let tensor = Tensor::<MockBackend>::zeros(&[2, 3]).unwrap();
 
         assert_eq!(tensor.ndim(), 2);
     }
 
     #[test]
-    fn test_tensor_validation_fails_on_too_large_usize() {
+    fn tensor_validation_fails_on_too_large_usize() {
         let usize_max = usize::MAX;
         let result =
             Tensor::<MockBackend>::get_validated_num_elements(&[usize_max, 1]);
@@ -336,7 +336,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tensor_validation_fails_on_overflow() {
+    fn tensor_validation_fails_on_overflow() {
         let isize_max = usize::try_from(isize::MAX).unwrap();
         let result =
             Tensor::<MockBackend>::get_validated_num_elements(&[isize_max, 2]);
@@ -349,14 +349,14 @@ mod tests {
     }
 
     #[test]
-    fn test_tensor_validation_succeeds_on_correct_shape() {
+    fn tensor_validation_succeeds_on_correct_shape() {
         let result = Tensor::<MockBackend>::get_validated_num_elements(&[2, 3]);
 
         assert!(result.is_ok());
     }
 
     #[test]
-    fn test_tensor_validation_fails_on_zero_dimensions() {
+    fn tensor_validation_fails_on_zero_dimensions() {
         let result = Tensor::<MockBackend>::get_validated_num_elements(&[2, 0]);
 
         assert!(result.is_err());
@@ -367,7 +367,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tensor_validation_returns_num_of_elements() {
+    fn tensor_validation_returns_num_of_elements() {
         let shape = &[2, 3];
         let expected_elements: usize = shape.iter().product();
 
@@ -381,7 +381,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tensor_creation_from_vec_succeeds() {
+    fn tensor_creation_from_vec_succeeds() {
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
         let shape = &[2, 3];
         let tensor = Tensor::<MockBackend>::from_vec(data, shape);
@@ -394,7 +394,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tensor_creation_from_vec_fails_on_too_few_elements() {
+    fn tensor_creation_from_vec_fails_on_too_few_elements() {
         let data = vec![1.0, 2.0, 3.0];
         let tensor = Tensor::<MockBackend>::from_vec(data, &[2, 3]);
 
@@ -406,7 +406,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tensor_creation_from_vec_fails_on_too_many_elements() {
+    fn tensor_creation_from_vec_fails_on_too_many_elements() {
         let data = vec![1.0, 2.0, 3.0];
         let tensor = Tensor::<MockBackend>::from_vec(data, &[1, 2]);
 
@@ -418,7 +418,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tensor_creation_from_vec_fails_on_invalid_shape() {
+    fn tensor_creation_from_vec_fails_on_invalid_shape() {
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
         let tensor = Tensor::<MockBackend>::from_vec(data, &[2, 0]);
 
