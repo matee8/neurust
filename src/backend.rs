@@ -38,7 +38,8 @@ pub trait Backend {
     /// # Safety
     ///
     /// The caller must ensure that the `shape` slice does not contain any
-    /// zeros.
+    /// zeros, and that the product of axis lengths does not overflow
+    /// `isize::MAX`.
     unsafe fn zeros(shape: &[usize]) -> Self::Tensor;
 }
 

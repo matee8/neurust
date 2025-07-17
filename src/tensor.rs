@@ -13,6 +13,9 @@ use crate::backend::Backend;
 #[non_exhaustive]
 #[derive(Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OperationError {
+    /// The product of axis lenghts exceeds `isize::MAX`.
+    #[error("product of axis lengths overflows `isize`")]
+    ShapeOverflow,
     /// One of the dimensions is zero.
     #[error("dimensions must be non-zero")]
     ZeroDim,
@@ -62,7 +65,16 @@ where
             return Err(OperationError::ZeroDim);
         }
 
-        // SAFETY: `shape` does not contain any zeros.
+        let _: isize = shape.iter().try_fold(1_isize, |product, &dim| {
+            let dim_isize = isize::try_from(dim)
+                .map_err(|_| OperationError::ShapeOverflow)?;
+            product
+                .checked_mul(dim_isize)
+                .ok_or(OperationError::ShapeOverflow)
+        })?;
+
+        // SAFETY: `shape` does not contain any zeros and product of dimensions
+        // does not overflow `isize::MAX`.
         let inner = unsafe { B::zeros(shape) };
 
         Ok(Self {
@@ -136,6 +148,18 @@ mod tests {
         let tensor_err = tensor.unwrap_err();
 
         assert_eq!(tensor_err, OperationError::ZeroDim);
+    }
+
+    #[test]
+    fn test_tensor_creation_zeros_fails_on_overflow() {
+        let isize_max = usize::try_from(isize::MAX).unwrap();
+        let tensor = Tensor::<MockBackend>::zeros(&[isize_max, 2]);
+
+        assert!(tensor.is_err());
+
+        let tensor_err = tensor.unwrap_err();
+
+        assert_eq!(tensor_err, OperationError::ShapeOverflow);
     }
 
     #[test]
