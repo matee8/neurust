@@ -24,6 +24,11 @@ where
     type Tensor = ArrayD<T>;
 
     #[inline]
+    unsafe fn add(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
+        lhs + rhs
+    }
+
+    #[inline]
     unsafe fn from_vec(
         data: Vec<Self::Primitive>,
         shape: &[usize],
@@ -113,5 +118,30 @@ mod tests {
 
         assert_eq!(array.shape(), shape);
         assert_eq!(array.into_raw_vec_and_offset().0, data_clone);
+    }
+
+    #[test]
+    fn ndarray_add_produces_correct_shape() {
+        let shape = &[2, 3];
+        let lhs = unsafe { NdarrayBackend::<f32>::zeros(shape) };
+        let rhs = unsafe { NdarrayBackend::<f32>::ones(shape) };
+
+        let result = unsafe { NdarrayBackend::add(&lhs, &rhs) };
+
+        assert_eq!(result.shape(), shape);
+    }
+
+    #[test]
+    fn ndarray_add_produces_correct_values() {
+        let shape = &[2, 2];
+        let lhs_data = vec![1.0, 2.0, 3.0, 4.0];
+        let rhs_data = vec![5.0, 6.0, 7.0, 8.0];
+        let expected = vec![6.0, 8.0, 10.0, 12.0];
+        let lhs = unsafe { NdarrayBackend::from_vec(lhs_data, shape) };
+        let rhs = unsafe { NdarrayBackend::from_vec(rhs_data, shape) };
+
+        let result = unsafe { NdarrayBackend::add(&lhs, &rhs) };
+
+        assert_eq!(result.into_raw_vec_and_offset().0, expected);
     }
 }

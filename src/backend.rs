@@ -32,6 +32,13 @@ pub trait Backend {
     /// The concrete tensor representation provided by the backend.
     type Tensor;
 
+    /// Adds two tensors element-wise.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `lhs` and `rhs` have the same shape.
+    unsafe fn add(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor;
+
     /// Creates a tensor from a vector of data and a shape.
     ///
     /// # Safety

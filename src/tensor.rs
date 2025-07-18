@@ -202,6 +202,13 @@ mod tests {
         type Primitive = f32;
         type Tensor = MockTensor;
 
+        unsafe fn add(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
+            Self::Tensor {
+                shape: lhs.shape.clone(),
+                value: lhs.value + rhs.value,
+            }
+        }
+
         unsafe fn from_vec(
             data: Vec<Self::Primitive>,
             shape: &[usize],
