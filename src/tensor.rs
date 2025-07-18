@@ -4,7 +4,7 @@
 //! parameterized by a [backend](crate::backend::Backend), and convenient type
 //! aliases for the most common use cases.
 
-use core::marker::PhantomData;
+use core::{marker::PhantomData, ops::Add};
 
 use thiserror::Error;
 
@@ -88,7 +88,10 @@ where
     /// Returns a [`IncompatibleTensorsError::ShapeMismatch`] if the tensors
     /// do not have the same shape.
     #[inline]
-    pub fn add(&self, other: &Self) -> Result<Self, IncompatibleTensorsError> {
+    pub fn checked_add(
+        &self,
+        other: &Self,
+    ) -> Result<Self, IncompatibleTensorsError> {
         if self.shape() != other.shape() {
             return Err(IncompatibleTensorsError::ShapeMismatch);
         }
@@ -215,6 +218,70 @@ where
             .map_err(|_| ShapeError::ShapeOverflow)?;
 
         Ok(num_elements)
+    }
+}
+
+/// Performs element-wise addition by consuming both tensors.
+///
+/// This implementation of the `+` operator moves the input tensors (`self`
+/// and `rhs`) and returns a new tensor containing the result.
+///
+/// # Panics
+///
+/// See the `Panics` section on the
+/// `impl Add<&TensorBase<B>> for &TensorBase<B>` block in the [`TensorBase`]
+/// documentation.
+impl<B> Add<Self> for TensorBase<B>
+where
+    B: Backend,
+{
+    type Output = Self;
+
+    #[inline]
+    fn add(self, rhs: Self) -> Self::Output {
+        assert_eq!(
+            self.shape(),
+            rhs.shape(),
+            "incompatible tensor shapes for operation"
+        );
+
+        // SAFETY: The shapes are guaranteed to be the same.
+        let inner = unsafe { B::add(&self.inner, &rhs.inner) };
+
+        Self::Output {
+            inner,
+            _marker: PhantomData,
+        }
+    }
+}
+
+/// Performs element-wise addition using the `+` operator.
+///
+/// # Panics
+///
+/// Panics if the tensors do not have the same shape. For a non-panicking
+/// alternative, see [`TensorBase::checked_add()`].
+impl<'rhs, B> Add<&'rhs TensorBase<B>> for &'_ TensorBase<B>
+where
+    B: Backend,
+{
+    type Output = TensorBase<B>;
+
+    #[inline]
+    fn add(self, rhs: &'rhs TensorBase<B>) -> Self::Output {
+        assert_eq!(
+            self.shape(),
+            rhs.shape(),
+            "incompatible tensor shapes for operation"
+        );
+
+        // SAFETY: The shapes are guaranteed to be the same.
+        let inner = unsafe { B::add(&self.inner, &rhs.inner) };
+
+        Self::Output {
+            inner,
+            _marker: PhantomData,
+        }
     }
 }
 
@@ -500,7 +567,7 @@ mod tests {
     fn add_returns_correct_shape() {
         let a = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
         let b = TensorBase::<MockBackend>::ones(&[2, 3]).unwrap();
-        let result = a.add(&b);
+        let result = a.checked_add(&b);
 
         assert!(result.is_ok());
         let sum_tensor = result.unwrap();
@@ -512,7 +579,7 @@ mod tests {
     fn add_returns_correct_values() {
         let a = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
         let b = TensorBase::<MockBackend>::ones(&[2, 3]).unwrap();
-        let result = a.add(&b);
+        let result = a.checked_add(&b);
 
         assert!(result.is_ok());
         let sum_tensor = result.unwrap();
@@ -523,13 +590,51 @@ mod tests {
     fn add_fails_with_mismatched_shapes() {
         let a = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
         let b = TensorBase::<MockBackend>::ones(&[3, 2]).unwrap();
-        let result = a.add(&b);
+        let result = a.checked_add(&b);
 
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
             IncompatibleTensorsError::ShapeMismatch
         );
+    }
+
+    #[test]
+    fn owned_add_operator_succeeds_with_matching_shapes() {
+        let lhs = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+        let rhs = TensorBase::<MockBackend>::ones(&[2, 3]).unwrap();
+        let result = lhs + rhs;
+
+        assert_eq!(result.shape(), &[2, 3]);
+        assert_eq!(result.inner.value, 1.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "incompatible tensor shapes for operation")]
+    fn owned_add_operator_panics_with_mismatched_shapes() {
+        let lhs = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+        let rhs = TensorBase::<MockBackend>::ones(&[3, 2]).unwrap();
+
+        let _result = lhs + rhs;
+    }
+
+    #[test]
+    fn borrowed_add_operator_succeeds_with_matching_shapes() {
+        let lhs = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+        let rhs = TensorBase::<MockBackend>::ones(&[2, 3]).unwrap();
+        let result = &lhs + &rhs;
+
+        assert_eq!(result.shape(), &[2, 3]);
+        assert_eq!(result.inner.value, 1.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "incompatible tensor shapes for operation")]
+    fn borrowed_add_operator_panics_with_mismatched_shapes() {
+        let lhs = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+        let rhs = TensorBase::<MockBackend>::ones(&[3, 2]).unwrap();
+
+        let _result = &lhs + &rhs;
     }
 }
 
@@ -618,7 +723,7 @@ mod type_alias_tests {
     fn alias_add_returns_correct_shape() {
         let a = Tensor::<f32>::zeros(&[2, 3]).unwrap();
         let b = Tensor::<f32>::ones(&[2, 3]).unwrap();
-        let result = a.add(&b);
+        let result = a.checked_add(&b);
 
         assert!(result.is_ok());
         let sum_tensor = result.unwrap();
@@ -629,7 +734,7 @@ mod type_alias_tests {
     fn alias_add_fails_with_mismatched_shapes() {
         let a = Tensor::<f32>::zeros(&[2, 3]).unwrap();
         let b = Tensor::<f32>::ones(&[2, 4]).unwrap();
-        let result = a.add(&b);
+        let result = a.checked_add(&b);
 
         assert!(result.is_err());
         assert_eq!(
