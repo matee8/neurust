@@ -49,6 +49,18 @@ pub enum ShapeError {
     ZeroDim,
 }
 
+/// An error that occurs during the tensor operations, when the two given
+/// tensors are incompatible with eachother.
+///
+/// This error is returned by operations like [`TensorBase::add()`].
+#[non_exhaustive]
+#[derive(Error, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IncompatibleTensorsError {
+    /// The shapes of the input tensors are not compatible for the operation.
+    #[error("incompatible tensor shapes for operation")]
+    ShapeMismatch,
+}
+
 /// Generic, backend-agnostic n-dimensional tensor.
 ///
 /// `TensorBase` is a thin wrapper around a backend-specific tensor
@@ -69,6 +81,27 @@ impl<B> TensorBase<B>
 where
     B: Backend,
 {
+    /// Performs element-wise addition between two tensors.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`IncompatibleTensorsError::ShapeMismatch`] if the tensors
+    /// do not have the same shape.
+    #[inline]
+    pub fn add(&self, other: &Self) -> Result<Self, IncompatibleTensorsError> {
+        if self.shape() != other.shape() {
+            return Err(IncompatibleTensorsError::ShapeMismatch);
+        }
+
+        // SAFETY: The shapes are guaranteed to be the same.
+        let inner = unsafe { B::add(&self.inner, &other.inner) };
+
+        Ok(Self {
+            inner,
+            _marker: PhantomData,
+        })
+    }
+
     /// Creates a tensor from a vector and a shape.
     ///
     /// # Errors
@@ -187,7 +220,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::tensor::{Backend, ShapeError, TensorBase};
+    use crate::tensor::{
+        Backend, IncompatibleTensorsError, ShapeError, TensorBase,
+    };
 
     #[derive(Debug)]
     struct MockBackend;
@@ -460,11 +495,49 @@ mod tests {
 
         assert_eq!(tensor_err, ShapeError::ZeroDim);
     }
+
+    #[test]
+    fn add_returns_correct_shape() {
+        let a = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+        let b = TensorBase::<MockBackend>::ones(&[2, 3]).unwrap();
+        let result = a.add(&b);
+
+        assert!(result.is_ok());
+        let sum_tensor = result.unwrap();
+        assert_eq!(sum_tensor.shape(), &[2, 3]);
+        assert_eq!(sum_tensor.inner.value, 1.0);
+    }
+
+    #[test]
+    fn add_returns_correct_values() {
+        let a = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+        let b = TensorBase::<MockBackend>::ones(&[2, 3]).unwrap();
+        let result = a.add(&b);
+
+        assert!(result.is_ok());
+        let sum_tensor = result.unwrap();
+        assert_eq!(sum_tensor.inner.value, 1.0);
+    }
+
+    #[test]
+    fn add_fails_with_mismatched_shapes() {
+        let a = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+        let b = TensorBase::<MockBackend>::ones(&[3, 2]).unwrap();
+        let result = a.add(&b);
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            IncompatibleTensorsError::ShapeMismatch
+        );
+    }
 }
 
 #[cfg(all(test, feature = "ndarray-backend"))]
 mod type_alias_tests {
-    use crate::tensor::{FloatTensor, ShapeError, Tensor};
+    use crate::tensor::{
+        FloatTensor, IncompatibleTensorsError, ShapeError, Tensor,
+    };
 
     #[test]
     fn tensor_alias_zeros_creates_tensor_with_zeros() {
@@ -539,5 +612,29 @@ mod type_alias_tests {
 
         assert_eq!(tensor_f32.shape(), float_tensor.shape());
         assert_eq!(tensor_f32.inner, float_tensor.inner);
+    }
+
+    #[test]
+    fn alias_add_returns_correct_shape() {
+        let a = Tensor::<f32>::zeros(&[2, 3]).unwrap();
+        let b = Tensor::<f32>::ones(&[2, 3]).unwrap();
+        let result = a.add(&b);
+
+        assert!(result.is_ok());
+        let sum_tensor = result.unwrap();
+        assert_eq!(sum_tensor.shape(), &[2, 3]);
+    }
+
+    #[test]
+    fn alias_add_fails_with_mismatched_shapes() {
+        let a = Tensor::<f32>::zeros(&[2, 3]).unwrap();
+        let b = Tensor::<f32>::ones(&[2, 4]).unwrap();
+        let result = a.add(&b);
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            IncompatibleTensorsError::ShapeMismatch
+        );
     }
 }
