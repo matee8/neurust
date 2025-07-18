@@ -285,6 +285,70 @@ where
     }
 }
 
+/// Performs element-wise addition by consuming the left-hand tensor and
+/// borrowing the right-hand tensor.
+///
+/// # Panics
+///
+/// See the `Panics` section on the
+/// `impl Add<&TensorBase<B>> for &TensorBase<B>` block in the [`TensorBase`]
+/// documentation.
+impl<'rhs, B> Add<&'rhs Self> for TensorBase<B>
+where
+    B: Backend,
+{
+    type Output = Self;
+
+    #[inline]
+    fn add(self, rhs: &'rhs Self) -> Self::Output {
+        assert_eq!(
+            self.shape(),
+            rhs.shape(),
+            "incompatible tensor shapes for operation"
+        );
+
+        // SAFETY: The shapes are guaranteed to be the same.
+        let inner = unsafe { B::add(&self.inner, &rhs.inner) };
+
+        Self::Output {
+            inner,
+            _marker: PhantomData,
+        }
+    }
+}
+
+/// Performs element-wise addition by borrowing the left-hand tensor and
+/// consuming the right-hand tensor.
+///
+/// # Panics
+///
+/// See the `Panics` section on the
+/// `impl Add<&TensorBase<B>> for &TensorBase<B>` block in the [`TensorBase`]
+/// documentation.
+impl<B> Add<TensorBase<B>> for &'_ TensorBase<B>
+where
+    B: Backend,
+{
+    type Output = TensorBase<B>;
+
+    #[inline]
+    fn add(self, rhs: TensorBase<B>) -> Self::Output {
+        assert_eq!(
+            self.shape(),
+            rhs.shape(),
+            "incompatible tensor shapes for operation"
+        );
+
+        // SAFETY: The shapes are guaranteed to be the same.
+        let inner = unsafe { B::add(&self.inner, &rhs.inner) };
+
+        Self::Output {
+            inner,
+            _marker: PhantomData,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::tensor::{
@@ -635,6 +699,42 @@ mod tests {
         let rhs = TensorBase::<MockBackend>::ones(&[3, 2]).unwrap();
 
         let _result = &lhs + &rhs;
+    }
+
+    #[test]
+    fn add_op_owned_ref_succeeds() {
+        let a = TensorBase::<MockBackend>::zeros(&[2, 2]).unwrap();
+        let b = TensorBase::<MockBackend>::ones(&[2, 2]).unwrap();
+        let c = a + &b;
+
+        assert_eq!(c.inner.value, 1.0);
+    }
+
+    #[test]
+    fn add_op_ref_owned_succeeds() {
+        let a = TensorBase::<MockBackend>::zeros(&[2, 2]).unwrap();
+        let b = TensorBase::<MockBackend>::ones(&[2, 2]).unwrap();
+        let c = &a + b;
+
+        assert_eq!(c.inner.value, 1.0);
+    }
+
+    #[test]
+    #[should_panic(expected = "incompatible tensor shapes for operation")]
+    fn add_op_owned_ref_panics_on_mismatch() {
+        let a = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+        let b = TensorBase::<MockBackend>::ones(&[3, 2]).unwrap();
+
+        let _result = a + &b;
+    }
+
+    #[test]
+    #[should_panic(expected = "incompatible tensor shapes for operation")]
+    fn add_op_ref_owned_panics_on_mismatch() {
+        let a = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+        let b = TensorBase::<MockBackend>::ones(&[3, 2]).unwrap();
+
+        let _result = &a + b;
     }
 }
 
