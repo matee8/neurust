@@ -23,8 +23,8 @@ pub mod ndarray;
 ///
 /// Some methods in this trait are marked `unsafe` because they do not perform
 /// any invariant checks (e.g., for shape compatibility). The caller (typically
-/// the [`Tensor`](crate::tensor::Tensor) wrapper) is responsible for ensuring
-/// all preconditions are met before calling these functions.
+/// the [`TensorBase`](crate::tensor::TensorBase) wrapper) is responsible for
+/// ensuring all preconditions are met before calling these functions.
 pub trait Backend {
     /// The element type of the tensors.
     type Primitive: Clone + Zero + One;

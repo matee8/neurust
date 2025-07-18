@@ -1,17 +1,33 @@
 //! # Generic tensor module.
 //!
-//! This module provides a generic [`Tensor`] structure that is parameterized by
-//! a [backend](crate::backend::Backend).
+//! This module provides a generic [`TensorBase`] structure that is
+//! parameterized by a [backend](crate::backend::Backend), and convenient type
+//! aliases for the most common use cases.
 
 use core::marker::PhantomData;
 
 use thiserror::Error;
 
-use crate::backend::Backend;
+use crate::backend::{Backend, SelectedBackend};
+
+/// A tensor with a backend selected at compile-time, generic over the element
+/// type.
+///
+/// This is the primary, user-facing tensor type. It utilizes the backend chosen
+/// via crate features, providing a simple and direct API for most use cases.
+/// However, for operations with different backends simultaneously, see
+/// [`TensorBase`].
+pub type Tensor<T> = TensorBase<SelectedBackend<T>>;
+
+/// A `Tensor` with an `f32` primitive type.
+///
+/// This is a convenience type alias for the most common tensor configuration
+/// used in machine learning.
+pub type FloatTensor = Tensor<f32>;
 
 /// An error related to the shape of a tensor during its creation.
 ///
-/// This error is returned by constructors like [`Tensor::zeros()`] when the
+/// This error is returned by constructors like [`TensorBase::zeros()`] when the
 /// provided shape is invalid or its properties exceed system limits.
 #[non_exhaustive]
 #[derive(Error, Debug, Clone, Copy, PartialEq, Eq)]
@@ -35,11 +51,13 @@ pub enum ShapeError {
 
 /// Generic, backend-agnostic n-dimensional tensor.
 ///
-/// `Tensor` is a thin wrapper around a backend-specific tensor implementation.
-/// It only performs invariants checks at runtime and delegates the actual
-/// maths to the backend.
+/// `TensorBase` is a thin wrapper around a backend-specific tensor
+/// implementation. It only performs invariants checks at runtime and delegates
+/// the actual maths to the backend.
+///
+/// For most applications, the [`Tensor`] type alias is more convenient.
 #[derive(Debug)]
-pub struct Tensor<B>
+pub struct TensorBase<B>
 where
     B: Backend,
 {
@@ -47,7 +65,7 @@ where
     inner: B::Tensor,
 }
 
-impl<B> Tensor<B>
+impl<B> TensorBase<B>
 where
     B: Backend,
 {
@@ -56,10 +74,10 @@ where
     /// # Errors
     ///
     /// This method will return an [`Err`](ShapeError) if the shape is
-    /// invalid (see the Errors section on [`Tensor::ones()`]) or if the number
-    /// of elements in `data` does not match the number of elements required by
-    /// the `shape`. (That is, the number of elements equals to the product of
-    /// the dimensions in `shape`.)
+    /// invalid (see the Errors section on [`TensorBase::zeros()`]) or if the
+    /// number of elements in `data` does not match the number of elements
+    /// required by the `shape`. (That is, the number of elements equals to the
+    /// product of the dimensions in `shape`.)
     #[inline]
     pub fn from_vec(
         data: Vec<B::Primitive>,
@@ -92,7 +110,7 @@ where
     ///
     /// # Errors
     ///
-    /// See the error notes on [`Tensor::zeros()`].
+    /// See the error notes on [`TensorBase::zeros()`].
     #[inline]
     pub fn ones(shape: &[usize]) -> Result<Self, ShapeError> {
         let _: usize = Self::get_validated_num_elements(shape)?;
@@ -169,8 +187,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::Tensor;
-    use crate::tensor::{Backend, ShapeError};
+    use crate::tensor::{Backend, ShapeError, TensorBase};
 
     #[derive(Debug)]
     struct MockBackend;
@@ -222,7 +239,7 @@ mod tests {
 
     #[test]
     fn tensor_creation_zeros_works() {
-        let tensor = Tensor::<MockBackend>::zeros(&[2, 3]);
+        let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]);
 
         assert!(tensor.is_ok());
     }
@@ -230,21 +247,21 @@ mod tests {
     #[test]
     fn tensor_creation_zeros_has_right_shape() {
         let shape = &[2, 3];
-        let tensor = Tensor::<MockBackend>::zeros(shape).unwrap();
+        let tensor = TensorBase::<MockBackend>::zeros(shape).unwrap();
 
         assert_eq!(tensor.inner.shape, shape);
     }
 
     #[test]
     fn tensor_creation_zeros_has_right_value() {
-        let tensor = Tensor::<MockBackend>::zeros(&[2, 3]).unwrap();
+        let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
 
         assert_eq!(tensor.inner.value, 0.0);
     }
 
     #[test]
     fn tensor_creation_zeros_fails_on_zero_dimension() {
-        let tensor = Tensor::<MockBackend>::zeros(&[2, 0]);
+        let tensor = TensorBase::<MockBackend>::zeros(&[2, 0]);
 
         assert!(tensor.is_err());
 
@@ -256,7 +273,7 @@ mod tests {
     #[test]
     fn tensor_creation_zeros_fails_on_overflow() {
         let isize_max = usize::try_from(isize::MAX).unwrap();
-        let tensor = Tensor::<MockBackend>::zeros(&[isize_max, 2]);
+        let tensor = TensorBase::<MockBackend>::zeros(&[isize_max, 2]);
 
         assert!(tensor.is_err());
 
@@ -267,7 +284,7 @@ mod tests {
 
     #[test]
     fn tensor_creation_ones_works() {
-        let tensor = Tensor::<MockBackend>::ones(&[2, 3]);
+        let tensor = TensorBase::<MockBackend>::ones(&[2, 3]);
 
         assert!(tensor.is_ok());
     }
@@ -275,21 +292,21 @@ mod tests {
     #[test]
     fn tensor_creation_ones_has_right_shape() {
         let shape = &[2, 3];
-        let tensor = Tensor::<MockBackend>::ones(shape).unwrap();
+        let tensor = TensorBase::<MockBackend>::ones(shape).unwrap();
 
         assert_eq!(tensor.inner.shape, shape);
     }
 
     #[test]
     fn tensor_creation_ones_has_right_values() {
-        let tensor = Tensor::<MockBackend>::ones(&[2, 3]).unwrap();
+        let tensor = TensorBase::<MockBackend>::ones(&[2, 3]).unwrap();
 
         assert_eq!(tensor.inner.value, 1.0);
     }
 
     #[test]
     fn tensor_creation_ones_fails_on_zero_dimension() {
-        let tensor = Tensor::<MockBackend>::ones(&[2, 0]);
+        let tensor = TensorBase::<MockBackend>::ones(&[2, 0]);
 
         assert!(tensor.is_err());
 
@@ -301,7 +318,7 @@ mod tests {
     #[test]
     fn tensor_creation_ones_fails_on_overflow() {
         let isize_max = usize::try_from(isize::MAX).unwrap();
-        let tensor = Tensor::<MockBackend>::ones(&[isize_max, 2]);
+        let tensor = TensorBase::<MockBackend>::ones(&[isize_max, 2]);
 
         assert!(tensor.is_err());
 
@@ -313,14 +330,14 @@ mod tests {
     #[test]
     fn tensor_shape_is_correct() {
         let shape = &[2, 3];
-        let tensor = Tensor::<MockBackend>::zeros(shape).unwrap();
+        let tensor = TensorBase::<MockBackend>::zeros(shape).unwrap();
 
         assert_eq!(tensor.shape(), shape);
     }
 
     #[test]
     fn tensor_ndim_is_correct() {
-        let tensor = Tensor::<MockBackend>::zeros(&[2, 3]).unwrap();
+        let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
 
         assert_eq!(tensor.ndim(), 2);
     }
@@ -328,8 +345,9 @@ mod tests {
     #[test]
     fn tensor_validation_fails_on_too_large_usize() {
         let usize_max = usize::MAX;
-        let result =
-            Tensor::<MockBackend>::get_validated_num_elements(&[usize_max, 1]);
+        let result = TensorBase::<MockBackend>::get_validated_num_elements(&[
+            usize_max, 1,
+        ]);
 
         assert!(result.is_err());
 
@@ -341,8 +359,9 @@ mod tests {
     #[test]
     fn tensor_validation_fails_on_overflow() {
         let isize_max = usize::try_from(isize::MAX).unwrap();
-        let result =
-            Tensor::<MockBackend>::get_validated_num_elements(&[isize_max, 3]);
+        let result = TensorBase::<MockBackend>::get_validated_num_elements(&[
+            isize_max, 3,
+        ]);
 
         assert!(result.is_err());
 
@@ -353,14 +372,16 @@ mod tests {
 
     #[test]
     fn tensor_validation_succeeds_on_correct_shape() {
-        let result = Tensor::<MockBackend>::get_validated_num_elements(&[2, 3]);
+        let result =
+            TensorBase::<MockBackend>::get_validated_num_elements(&[2, 3]);
 
         assert!(result.is_ok());
     }
 
     #[test]
     fn tensor_validation_fails_on_zero_dimensions() {
-        let result = Tensor::<MockBackend>::get_validated_num_elements(&[2, 0]);
+        let result =
+            TensorBase::<MockBackend>::get_validated_num_elements(&[2, 0]);
 
         assert!(result.is_err());
 
@@ -374,7 +395,8 @@ mod tests {
         let shape = &[2, 3];
         let expected_elements: usize = shape.iter().product();
 
-        let result = Tensor::<MockBackend>::get_validated_num_elements(shape);
+        let result =
+            TensorBase::<MockBackend>::get_validated_num_elements(shape);
 
         assert!(result.is_ok());
 
@@ -387,7 +409,7 @@ mod tests {
     fn tensor_creation_from_vec_succeeds() {
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
         let shape = &[2, 3];
-        let tensor = Tensor::<MockBackend>::from_vec(data, shape);
+        let tensor = TensorBase::<MockBackend>::from_vec(data, shape);
 
         assert!(tensor.is_ok());
 
@@ -399,7 +421,7 @@ mod tests {
     #[test]
     fn tensor_creation_from_vec_fails_on_too_few_elements() {
         let data = vec![1.0, 2.0, 3.0];
-        let tensor = Tensor::<MockBackend>::from_vec(data, &[2, 3]);
+        let tensor = TensorBase::<MockBackend>::from_vec(data, &[2, 3]);
 
         assert!(tensor.is_err());
 
@@ -411,7 +433,7 @@ mod tests {
     #[test]
     fn tensor_creation_from_vec_fails_on_too_many_elements() {
         let data = vec![1.0, 2.0, 3.0];
-        let tensor = Tensor::<MockBackend>::from_vec(data, &[1, 2]);
+        let tensor = TensorBase::<MockBackend>::from_vec(data, &[1, 2]);
 
         assert!(tensor.is_err());
 
@@ -423,12 +445,92 @@ mod tests {
     #[test]
     fn tensor_creation_from_vec_fails_on_invalid_shape() {
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
-        let tensor = Tensor::<MockBackend>::from_vec(data, &[2, 0]);
+        let tensor = TensorBase::<MockBackend>::from_vec(data, &[2, 0]);
 
         assert!(tensor.is_err());
 
         let tensor_err = tensor.unwrap_err();
 
         assert_eq!(tensor_err, ShapeError::ZeroDim);
+    }
+}
+
+#[cfg(all(test, feature = "ndarray-backend"))]
+mod type_alias_tests {
+    use crate::tensor::{FloatTensor, ShapeError, Tensor};
+
+    #[test]
+    fn tensor_alias_zeros_creates_tensor_with_zeros() {
+        let shape = &[2, 3];
+        let tensor = Tensor::<f32>::zeros(shape).unwrap();
+
+        assert_eq!(tensor.shape(), shape);
+        assert!(tensor.inner.iter().all(|&value| value == 0.0));
+    }
+
+    #[test]
+    fn tensor_alias_ones_creates_tensor_with_ones() {
+        let shape = &[2, 3];
+        let tensor = Tensor::<f32>::ones(shape).unwrap();
+
+        assert_eq!(tensor.shape(), shape);
+        assert!(tensor.inner.iter().all(|&value| value == 1.0));
+    }
+
+    #[test]
+    fn tensor_alias_from_vec_creates_correct_tensor() {
+        let shape = &[2, 3];
+        let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let data_clone = data.clone();
+        let tensor = Tensor::<f32>::from_vec(data, shape).unwrap();
+
+        assert_eq!(tensor.shape(), shape);
+        assert_eq!(tensor.inner.as_slice().unwrap(), &data_clone);
+    }
+
+    #[test]
+    fn tensor_alias_from_vec_fails_on_element_mismatch() {
+        let shape = &[2, 3];
+        let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let result = Tensor::<f32>::from_vec(data, shape);
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), ShapeError::ElementCountMismatch);
+    }
+
+    #[test]
+    fn tensor_alias_ndim_is_correct() {
+        let shape = &[2, 3, 4];
+        let tensor = Tensor::<f32>::zeros(shape).unwrap();
+
+        assert_eq!(tensor.ndim(), 3);
+    }
+
+    #[test]
+    fn tensor_alias_zeros_fails_on_zero_dim() {
+        let shape = &[2, 0];
+        let result = Tensor::<f32>::zeros(shape);
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), ShapeError::ZeroDim);
+    }
+
+    #[test]
+    fn tensor_alias_works_with_other_primitives() {
+        let shape = &[4, 1];
+        let tensor = Tensor::<i32>::zeros(shape).unwrap();
+
+        assert_eq!(tensor.shape(), shape);
+        assert!(tensor.inner.iter().all(|&value| value == 0));
+    }
+
+    #[test]
+    fn float_tensor_alias_is_tensor_f32() {
+        let shape = &[2, 2];
+        let tensor_f32 = Tensor::<f32>::ones(shape).unwrap();
+        let float_tensor = FloatTensor::ones(shape).unwrap();
+
+        assert_eq!(tensor_f32.shape(), float_tensor.shape());
+        assert_eq!(tensor_f32.inner, float_tensor.inner);
     }
 }
