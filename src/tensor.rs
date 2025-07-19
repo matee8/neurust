@@ -349,6 +349,54 @@ where
     }
 }
 
+macro_rules! impl_scalar_addition {
+    ($($t:ty), *) => {
+        $(
+            /// Performs element-wise addition of a scalar to a tensor,
+            /// consuming the tensor.
+            impl<B> Add<$t> for TensorBase<B>
+            where
+                B: Backend<Primitive = $t>
+            {
+                type Output = Self;
+
+                #[inline]
+                fn add(self, rhs: $t) -> Self::Output {
+                    let inner = B::add_scalar(&self.inner, rhs);
+
+                    Self::Output {
+                        inner,
+                        _marker: PhantomData,
+                    }
+                }
+            }
+
+            /// Performs element-wise addition of a scalar to a tensor,
+            /// borrowing the tensor.
+            impl<B> Add<$t> for &'_ TensorBase<B>
+            where
+                B: Backend<Primitive = $t>
+            {
+                type Output = TensorBase<B>;
+
+                #[inline]
+                fn add(self, rhs: $t) -> Self::Output {
+                    let inner = B::add_scalar(&self.inner, rhs);
+
+                    Self::Output {
+                        inner,
+                        _marker: PhantomData,
+                    }
+                }
+            }
+        )*
+    };
+}
+
+impl_scalar_addition!(
+    f32, f64, i8, i16, i32, i64, i128, u8, u16, u32, u64, u128
+);
+
 #[cfg(test)]
 mod tests {
     use crate::tensor::{
@@ -745,6 +793,22 @@ mod tests {
         let b = TensorBase::<MockBackend>::ones(&[3, 2]).unwrap();
 
         let _result = &a + b;
+    }
+
+    #[test]
+    fn add_scalar_op_owned_succeeds() {
+        let tensor = TensorBase::<MockBackend>::ones(&[2, 2]).unwrap();
+        let result = tensor + 10.0;
+        assert_eq!(result.inner.value, 11.0);
+    }
+
+    #[test]
+    fn add_scalar_op_borrowed_succeeds() {
+        let tensor = TensorBase::<MockBackend>::ones(&[2, 2]).unwrap();
+        let result = &tensor + 10.0;
+        assert_eq!(result.inner.value, 11.0);
+
+        assert_eq!(tensor.inner.value, 1.0);
     }
 }
 
