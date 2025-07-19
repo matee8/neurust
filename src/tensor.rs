@@ -368,6 +368,16 @@ mod tests {
         type Primitive = f32;
         type Tensor = MockTensor;
 
+        fn add_scalar(
+            tensor: &Self::Tensor,
+            scalar: Self::Primitive,
+        ) -> Self::Tensor {
+            Self::Tensor {
+                shape: tensor.shape.clone(),
+                value: tensor.value + scalar,
+            }
+        }
+
         unsafe fn add(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
             Self::Tensor {
                 shape: lhs.shape.clone(),

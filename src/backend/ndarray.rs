@@ -2,7 +2,7 @@
 
 use core::marker::PhantomData;
 
-use ndarray::{ArrayD, IxDyn};
+use ndarray::{ArrayD, IxDyn, ScalarOperand};
 use num_traits::{One, Zero};
 
 use crate::backend::Backend;
@@ -18,7 +18,7 @@ where
 
 impl<T> Backend for NdarrayBackend<T>
 where
-    T: Clone + Zero + One,
+    T: Clone + Zero + One + ScalarOperand,
 {
     type Primitive = T;
     type Tensor = ArrayD<T>;
@@ -26,6 +26,14 @@ where
     #[inline]
     unsafe fn add(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
         lhs + rhs
+    }
+
+    #[inline]
+    fn add_scalar(
+        tensor: &Self::Tensor,
+        scalar: Self::Primitive,
+    ) -> Self::Tensor {
+        tensor + scalar
     }
 
     #[inline]
@@ -141,6 +149,43 @@ mod tests {
         let rhs = unsafe { NdarrayBackend::from_vec(rhs_data, shape) };
 
         let result = unsafe { NdarrayBackend::add(&lhs, &rhs) };
+
+        assert_eq!(result.into_raw_vec_and_offset().0, expected);
+    }
+
+    #[test]
+    fn ndarray_add_scalar_preserves_shape() {
+        let shape = &[2, 3, 4];
+        let tensor = unsafe { NdarrayBackend::<f32>::zeros(shape) };
+        let scalar = 5.0;
+
+        let result = NdarrayBackend::add_scalar(&tensor, scalar);
+
+        assert_eq!(result.shape(), shape);
+    }
+
+    #[test]
+    fn ndarray_add_scalar_produces_correct_values() {
+        let shape = &[2, 2];
+        let data = vec![1.0, 2.0, 3.0, 4.0];
+        let scalar = 10.0;
+        let expected = vec![11.0, 12.0, 13.0, 14.0];
+
+        let tensor = unsafe { NdarrayBackend::from_vec(data, shape) };
+        let result = NdarrayBackend::add_scalar(&tensor, scalar);
+
+        assert_eq!(result.into_raw_vec_and_offset().0, expected);
+    }
+
+    #[test]
+    fn ndarray_add_scalar_works_for_integers() {
+        let shape = &[2, 2];
+        let data = vec![1, 2, 3, 4];
+        let scalar = 10;
+        let expected = vec![11, 12, 13, 14];
+
+        let tensor = unsafe { NdarrayBackend::<i32>::from_vec(data, shape) };
+        let result = NdarrayBackend::add_scalar(&tensor, scalar);
 
         assert_eq!(result.into_raw_vec_and_offset().0, expected);
     }

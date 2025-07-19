@@ -39,6 +39,12 @@ pub trait Backend {
     /// The caller must ensure that `lhs` and `rhs` have the same shape.
     unsafe fn add(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor;
 
+    /// Adds a scalar to every element of a tensor.
+    fn add_scalar(
+        tensor: &Self::Tensor,
+        scalar: Self::Primitive,
+    ) -> Self::Tensor;
+
     /// Creates a tensor from a vector of data and a shape.
     ///
     /// # Safety
