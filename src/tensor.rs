@@ -105,6 +105,30 @@ where
         })
     }
 
+    /// Performs element-wise subtraction between two tensors.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`IncompatibleTensorsError::ShapeMismatch`] if the tensors
+    /// do not have the same shape.
+    #[inline]
+    pub fn checked_sub(
+        &self,
+        other: &Self,
+    ) -> Result<Self, IncompatibleTensorsError> {
+        if self.shape() != other.shape() {
+            return Err(IncompatibleTensorsError::ShapeMismatch);
+        }
+
+        // SAFETY: The shapes are guaranteed to be the same.
+        let inner = unsafe { B::sub(&self.inner, &other.inner) };
+
+        Ok(Self {
+            inner,
+            _marker: PhantomData,
+        })
+    }
+
     /// Creates a tensor from a vector and a shape.
     ///
     /// # Errors
@@ -816,6 +840,41 @@ mod tests {
         assert_eq!(result.inner.value, 11.0);
 
         assert_eq!(tensor.inner.value, 1.0);
+    }
+
+    #[test]
+    fn sub_returns_correct_shape() {
+        let a = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+        let b = TensorBase::<MockBackend>::ones(&[2, 3]).unwrap();
+        let result = a.checked_sub(&b);
+
+        assert!(result.is_ok());
+        let sum_tensor = result.unwrap();
+        assert_eq!(sum_tensor.shape(), &[2, 3]);
+    }
+
+    #[test]
+    fn sub_returns_correct_values() {
+        let a = TensorBase::<MockBackend>::ones(&[2, 3]).unwrap();
+        let b = TensorBase::<MockBackend>::ones(&[2, 3]).unwrap();
+        let result = a.checked_sub(&b);
+
+        assert!(result.is_ok());
+        let sum_tensor = result.unwrap();
+        assert_eq!(sum_tensor.inner.value, 0.0);
+    }
+
+    #[test]
+    fn sub_fails_with_mismatched_shapes() {
+        let a = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+        let b = TensorBase::<MockBackend>::ones(&[3, 2]).unwrap();
+        let result = a.checked_sub(&b);
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            IncompatibleTensorsError::ShapeMismatch
+        );
     }
 }
 
