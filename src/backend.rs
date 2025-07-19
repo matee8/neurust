@@ -72,6 +72,13 @@ pub trait Backend {
     /// Returns the shape of the tensor as a slice of dimensions.
     fn shape(tensor: &Self::Tensor) -> &[usize];
 
+    /// Subtracts the second tensor from the first, element-wise.
+    ///
+    /// # Safety
+    ///
+    /// See the `Safety` notes on [`Backend::add()`].
+    unsafe fn sub(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor;
+
     /// Creates a tensor with all elements set to zero, with the given shape.
     ///
     /// # Safety

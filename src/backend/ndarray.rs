@@ -1,8 +1,10 @@
 //! [`ndarray`] crate backend.
 
-use core::marker::PhantomData;
+use core::{marker::PhantomData, ops::Sub};
 
-use ndarray::{ArrayD, IxDyn, ScalarOperand};
+use ndarray::{
+    ArrayBase, ArrayD, Dim, IxDyn, IxDynImpl, OwnedRepr, ScalarOperand,
+};
 use num_traits::{One, Zero};
 
 use crate::backend::Backend;
@@ -19,6 +21,10 @@ where
 impl<T> Backend for NdarrayBackend<T>
 where
     T: Clone + Zero + One + ScalarOperand,
+    for<'borrow> &'borrow ArrayBase<OwnedRepr<T>, Dim<IxDynImpl>>: Sub<
+            &'borrow ArrayBase<OwnedRepr<T>, Dim<IxDynImpl>>,
+            Output = ArrayBase<OwnedRepr<T>, Dim<IxDynImpl>>,
+        >,
 {
     type Primitive = T;
     type Tensor = ArrayD<T>;
@@ -59,6 +65,11 @@ where
     #[inline]
     fn shape(tensor: &Self::Tensor) -> &[usize] {
         tensor.shape()
+    }
+
+    #[inline]
+    unsafe fn sub(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
+        lhs - rhs
     }
 
     #[inline]
@@ -186,6 +197,32 @@ mod tests {
 
         let tensor = unsafe { NdarrayBackend::<i32>::from_vec(data, shape) };
         let result = NdarrayBackend::add_scalar(&tensor, scalar);
+
+        assert_eq!(result.into_raw_vec_and_offset().0, expected);
+    }
+
+    #[test]
+    fn ndarray_sub_produces_correct_shape() {
+        let shape = &[2, 2];
+        let a = unsafe { NdarrayBackend::<f32>::zeros(shape) };
+        let b = unsafe { NdarrayBackend::<f32>::ones(shape) };
+
+        let result = unsafe { NdarrayBackend::sub(&a, &b) };
+
+        assert_eq!(result.shape(), shape);
+    }
+
+    #[test]
+    fn ndarray_sub_produces_correct_values() {
+        let shape = &[2, 2];
+        let a_data = vec![10.0, 8.0, 6.0, 4.0];
+        let b_data = vec![1.0, 2.0, 3.0, 4.0];
+        let expected = vec![9.0, 6.0, 3.0, 0.0];
+
+        let a = unsafe { NdarrayBackend::from_vec(a_data, shape) };
+        let b = unsafe { NdarrayBackend::from_vec(b_data, shape) };
+
+        let result = unsafe { NdarrayBackend::sub(&a, &b) };
 
         assert_eq!(result.into_raw_vec_and_offset().0, expected);
     }

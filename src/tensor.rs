@@ -460,6 +460,13 @@ mod tests {
             &tensor.shape
         }
 
+        unsafe fn sub(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
+            Self::Tensor {
+                shape: lhs.shape.clone(),
+                value: lhs.value - rhs.value,
+            }
+        }
+
         unsafe fn zeros(shape: &[usize]) -> Self::Tensor {
             Self::Tensor {
                 shape: shape.to_owned(),
