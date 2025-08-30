@@ -21,5 +21,5 @@ jobs:
       run: cargo clippy --all-features
     - name: Run formatter
       run: |
-        rustup component add --tolchain nightly-x86_64-unknown-linux-gnu rustfmt
+        rustup component add --toolchain nightly-x86_64-unknown-linux-gnu rustfmt
         cargo +nightly fmt
