@@ -19,5 +19,5 @@ jobs:
       run: cargo test --verbose
     - name: Run clippy
       run: cargo clippy --all-features
-    - name: Run formatter:
+    - name: Run formatter
       run: cargo +nightly fmt
