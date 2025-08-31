@@ -1,0 +1,21 @@
+name: Minimal supported versions
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  minimal-versions:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v5
+    - name: Build
+      run: cargo install cargo-hack cargo-msrv cargo-minimal-versions
+    - name: Check minimal supported Rust version
+      run: cargo msrv verify -- cargo check --tests --all-features
+    - name: Check minimal supported dependencies
+      run: cargo minimal versions check --workspace --all-features --tests
