@@ -92,16 +92,9 @@ where
         &self,
         other: &Self,
     ) -> Result<Self, IncompatibleTensorsError> {
-        if self.shape() != other.shape() {
-            return Err(IncompatibleTensorsError::ShapeMismatch);
-        }
-
-        // SAFETY: The shapes are guaranteed to be the same.
-        let inner = unsafe { B::add(&self.inner, &other.inner) };
-
-        Ok(Self {
-            inner,
-            _marker: PhantomData,
+        self.checked_binary_op(other, |lhs, rhs| {
+            // SAFETY: The shapes are guaranteed to be the same.
+            unsafe { B::add(lhs, rhs) }
         })
     }
 
@@ -116,16 +109,9 @@ where
         &self,
         other: &Self,
     ) -> Result<Self, IncompatibleTensorsError> {
-        if self.shape() != other.shape() {
-            return Err(IncompatibleTensorsError::ShapeMismatch);
-        }
-
-        // SAFETY: The shapes are guaranteed to be the same.
-        let inner = unsafe { B::sub(&self.inner, &other.inner) };
-
-        Ok(Self {
-            inner,
-            _marker: PhantomData,
+        self.checked_binary_op(other, |lhs, rhs| {
+            // SAFETY: The shapes are guaranteed to be the same.
+            unsafe { B::sub(lhs, rhs) }
         })
     }
 
@@ -242,6 +228,26 @@ where
             .map_err(|_| ShapeError::ShapeOverflow)?;
 
         Ok(num_elements)
+    }
+
+    fn checked_binary_op<F>(
+        &self,
+        rhs: &Self,
+        op: F,
+    ) -> Result<Self, IncompatibleTensorsError>
+    where
+        F: FnOnce(&B::Tensor, &B::Tensor) -> B::Tensor,
+    {
+        if self.shape() != rhs.shape() {
+            return Err(IncompatibleTensorsError::ShapeMismatch);
+        }
+
+        let inner = op(&self.inner, &rhs.inner);
+
+        Ok(Self {
+            inner,
+            _marker: PhantomData,
+        })
     }
 }
 
