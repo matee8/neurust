@@ -251,181 +251,79 @@ where
     }
 }
 
-/// Performs element-wise addition by consuming both tensors.
-///
-/// This implementation of the `+` operator moves the input tensors (`self`
-/// and `rhs`) and returns a new tensor containing the result.
-///
-/// # Panics
-///
-/// See the `Panics` section on the
-/// `impl Add<&TensorBase<B>> for &TensorBase<B>` block in the [`TensorBase`]
-/// documentation.
-impl<B> Add<Self> for TensorBase<B>
-where
-    B: Backend,
-{
-    type Output = Self;
+macro_rules! impl_binary_op {
+    ($trait:ident, $method:ident, $checked_method:ident) => {
+        impl<B: Backend> $trait<TensorBase<B>> for TensorBase<B> {
+            type Output = Self;
 
-    #[inline]
-    fn add(self, rhs: Self) -> Self::Output {
-        assert_eq!(
-            self.shape(),
-            rhs.shape(),
-            "incompatible tensor shapes for operation"
-        );
-
-        // SAFETY: The shapes are guaranteed to be the same.
-        let inner = unsafe { B::add(&self.inner, &rhs.inner) };
-
-        Self::Output {
-            inner,
-            _marker: PhantomData,
+            #[inline]
+            fn $method(self, rhs: Self) -> Self::Output {
+                self.$checked_method(&rhs)
+                    .expect("incompatible tensor shapes for operation")
+            }
         }
-    }
+
+        impl<'rhs, B: Backend> $trait<&'rhs TensorBase<B>> for TensorBase<B> {
+            type Output = Self;
+
+            #[inline]
+            fn $method(self, rhs: &'rhs TensorBase<B>) -> Self::Output {
+                self.$checked_method(rhs)
+                    .expect("incompatible tensor shapes for operation")
+            }
+        }
+
+        impl<B: Backend> $trait<TensorBase<B>> for &TensorBase<B> {
+            type Output = TensorBase<B>;
+
+            #[inline]
+            fn $method(self, rhs: TensorBase<B>) -> Self::Output {
+                self.$checked_method(&rhs)
+                    .expect("incompatible tensor shapes for operation")
+            }
+        }
+
+        impl<'rhs, B: Backend> $trait<&'rhs TensorBase<B>> for &TensorBase<B> {
+            type Output = TensorBase<B>;
+
+            #[inline]
+            fn $method(self, rhs: &'rhs TensorBase<B>) -> Self::Output {
+                self.$checked_method(rhs)
+                    .expect("incompatible tensor shapes for operation")
+            }
+        }
+    };
 }
 
-/// Performs element-wise addition using the `+` operator.
-///
-/// # Panics
-///
-/// Panics if the tensors do not have the same shape. For a non-panicking
-/// alternative, see [`TensorBase::checked_add()`].
-impl<'rhs, B> Add<&'rhs TensorBase<B>> for &'_ TensorBase<B>
-where
-    B: Backend,
-{
-    type Output = TensorBase<B>;
-
-    #[inline]
-    fn add(self, rhs: &'rhs TensorBase<B>) -> Self::Output {
-        assert_eq!(
-            self.shape(),
-            rhs.shape(),
-            "incompatible tensor shapes for operation"
-        );
-
-        // SAFETY: The shapes are guaranteed to be the same.
-        let inner = unsafe { B::add(&self.inner, &rhs.inner) };
-
-        Self::Output {
-            inner,
-            _marker: PhantomData,
-        }
-    }
-}
-
-/// Performs element-wise addition by consuming the left-hand tensor and
-/// borrowing the right-hand tensor.
-///
-/// # Panics
-///
-/// See the `Panics` section on the
-/// `impl Add<&TensorBase<B>> for &TensorBase<B>` block in the [`TensorBase`]
-/// documentation.
-impl<'rhs, B> Add<&'rhs Self> for TensorBase<B>
-where
-    B: Backend,
-{
-    type Output = Self;
-
-    #[inline]
-    fn add(self, rhs: &'rhs Self) -> Self::Output {
-        assert_eq!(
-            self.shape(),
-            rhs.shape(),
-            "incompatible tensor shapes for operation"
-        );
-
-        // SAFETY: The shapes are guaranteed to be the same.
-        let inner = unsafe { B::add(&self.inner, &rhs.inner) };
-
-        Self::Output {
-            inner,
-            _marker: PhantomData,
-        }
-    }
-}
-
-/// Performs element-wise addition by borrowing the left-hand tensor and
-/// consuming the right-hand tensor.
-///
-/// # Panics
-///
-/// See the `Panics` section on the
-/// `impl Add<&TensorBase<B>> for &TensorBase<B>` block in the [`TensorBase`]
-/// documentation.
-impl<B> Add<TensorBase<B>> for &'_ TensorBase<B>
-where
-    B: Backend,
-{
-    type Output = TensorBase<B>;
-
-    #[inline]
-    fn add(self, rhs: TensorBase<B>) -> Self::Output {
-        assert_eq!(
-            self.shape(),
-            rhs.shape(),
-            "incompatible tensor shapes for operation"
-        );
-
-        // SAFETY: The shapes are guaranteed to be the same.
-        let inner = unsafe { B::add(&self.inner, &rhs.inner) };
-
-        Self::Output {
-            inner,
-            _marker: PhantomData,
-        }
-    }
-}
-
-macro_rules! impl_scalar_addition {
-    ($($t:ty), *) => {
+macro_rules! impl_scalar_op {
+    ($trait:ident, $method:ident, $backend_method:ident, $($t:ty),*) => {
         $(
-            /// Performs element-wise addition of a scalar to a tensor,
-            /// consuming the tensor.
-            impl<B> Add<$t> for TensorBase<B>
-            where
-                B: Backend<Primitive = $t>
-            {
+            impl<B: Backend<Primitive = $t>> $trait<$t> for TensorBase<B> {
                 type Output = Self;
 
                 #[inline]
-                fn add(self, rhs: $t) -> Self::Output {
-                    let inner = B::add_scalar(&self.inner, rhs);
-
-                    Self::Output {
-                        inner,
-                        _marker: PhantomData,
-                    }
+                fn $method(self, rhs: $t) -> Self::Output {
+                    let inner = B::$backend_method(&self.inner, rhs);
+                    Self { inner, _marker: PhantomData }
                 }
             }
 
-            /// Performs element-wise addition of a scalar to a tensor,
-            /// borrowing the tensor.
-            impl<B> Add<$t> for &'_ TensorBase<B>
-            where
-                B: Backend<Primitive = $t>
-            {
+            impl<B: Backend<Primitive = $t>> $trait<$t> for &TensorBase<B> {
                 type Output = TensorBase<B>;
 
                 #[inline]
-                fn add(self, rhs: $t) -> Self::Output {
-                    let inner = B::add_scalar(&self.inner, rhs);
-
-                    Self::Output {
-                        inner,
-                        _marker: PhantomData,
-                    }
+                fn $method(self, rhs: $t) -> Self::Output {
+                    let inner = B::$backend_method(&self.inner, rhs);
+                    Self::Output { inner, _marker: PhantomData }
                 }
             }
         )*
     };
 }
 
-impl_scalar_addition!(
-    f32, f64, i8, i16, i32, i64, i128, u8, u16, u32, u64, u128
-);
+impl_binary_op!(Add, add, checked_add);
+
+impl_scalar_op!(Add, add, add_scalar, f32, f64, i8, i16, i32, i64, i128);
 
 #[cfg(test)]
 mod tests {
