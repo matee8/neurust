@@ -95,50 +95,68 @@ where
 mod tests {
     use crate::backend::{Backend, ndarray::NdarrayBackend};
 
-    #[test]
-    fn ndarray_zeros_has_correct_shape() {
-        let shape = &[2, 3];
-        let array = unsafe { NdarrayBackend::<f32>::zeros(shape) };
+    macro_rules! test_binary_op {
+        ($name:ident, $op:ident, $lhs:expr, $rhs:expr, $expected:expr) => {
+            #[test]
+            fn $name() {
+                let shape = &[2, 2];
+                let lhs = unsafe { NdarrayBackend::from_vec($lhs, shape) };
+                let rhs = unsafe { NdarrayBackend::from_vec($rhs, shape) };
 
-        assert_eq!(array.shape(), shape);
+                let result_shape = unsafe { NdarrayBackend::$op(&lhs, &rhs) };
+                assert_eq!(result_shape.shape(), shape);
+
+                let result_values = unsafe { NdarrayBackend::$op(&lhs, &rhs) };
+                assert_eq!(
+                    result_values.into_raw_vec_and_offset().0,
+                    $expected
+                );
+            }
+        };
+    }
+
+    macro_rules! test_scalar_op {
+        ($name:ident, $op:ident, $input:expr, $scalar:expr, $expected:expr) => {
+            #[test]
+            fn $name() {
+                let shape = &[2, 2];
+                let tensor =
+                    unsafe { NdarrayBackend::from_vec($input.clone(), shape) };
+
+                let result_shape = NdarrayBackend::$op(&tensor, $scalar);
+                assert_eq!(result_shape.shape(), shape);
+
+                let result_values = NdarrayBackend::$op(&tensor, $scalar);
+                assert_eq!(
+                    result_values.into_raw_vec_and_offset().0,
+                    $expected
+                );
+            }
+        };
     }
 
     #[test]
-    fn ndarray_zeros_has_correct_values() {
-        let array = unsafe { NdarrayBackend::<f32>::zeros(&[2, 3]) };
-
+    fn ndarray_zeros_has_correct_shape_and_values() {
+        let shape = &[2, 3];
+        let array = unsafe { NdarrayBackend::<f32>::zeros(shape) };
+        assert_eq!(array.shape(), shape);
         assert!(array.iter().all(|&value| value == 0.0));
     }
 
     #[test]
-    fn ndarray_ones_has_correct_shape() {
+    fn ndarray_ones_has_correct_shape_and_values() {
         let shape = &[2, 3];
         let array = unsafe { NdarrayBackend::<f32>::ones(shape) };
-
         assert_eq!(array.shape(), shape);
-    }
-
-    #[test]
-    fn ndarray_ones_has_correct_values() {
-        let array = unsafe { NdarrayBackend::<f32>::ones(&[2, 3]) };
-
         assert!(array.iter().all(|&value| value == 1.0));
     }
 
     #[test]
-    fn ndarray_shape_is_correct() {
-        let shape = &[2, 3];
+    fn ndarray_shape_and_ndim_are_correct() {
+        let shape = &[2, 3, 4];
         let array = unsafe { NdarrayBackend::<f32>::zeros(shape) };
-
         assert_eq!(NdarrayBackend::shape(&array), shape);
-    }
-
-    #[test]
-    fn ndarray_ndim_is_correct() {
-        let shape = &[2, 3];
-        let array = unsafe { NdarrayBackend::<f32>::zeros(shape) };
-
-        assert_eq!(NdarrayBackend::ndim(&array), shape.len());
+        assert_eq!(NdarrayBackend::ndim(&array), 3);
     }
 
     #[test]
@@ -152,151 +170,51 @@ mod tests {
         assert_eq!(array.into_raw_vec_and_offset().0, data_clone);
     }
 
-    #[test]
-    fn ndarray_add_produces_correct_shape() {
-        let shape = &[2, 3];
-        let lhs = unsafe { NdarrayBackend::<f32>::zeros(shape) };
-        let rhs = unsafe { NdarrayBackend::<f32>::ones(shape) };
+    test_binary_op!(
+        ndarray_add_produces_correct_values,
+        add,
+        vec![1.0, 2.0, 3.0, 4.0],
+        vec![5.0, 6.0, 7.0, 8.0],
+        vec![6.0, 8.0, 10.0, 12.0]
+    );
 
-        let result = unsafe { NdarrayBackend::add(&lhs, &rhs) };
+    test_binary_op!(
+        ndarray_sub_produces_correct_values,
+        sub,
+        vec![10.0, 8.0, 6.0, 4.0],
+        vec![1.0, 2.0, 3.0, 4.0],
+        vec![9.0, 6.0, 3.0, 0.0]
+    );
 
-        assert_eq!(result.shape(), shape);
-    }
+    test_binary_op!(
+        ndarray_mul_produces_correct_values,
+        mul,
+        vec![1.0, 2.0, 3.0, 4.0],
+        vec![5.0, 6.0, 7.0, 8.0],
+        vec![5.0, 12.0, 21.0, 32.0]
+    );
 
-    #[test]
-    fn ndarray_add_produces_correct_values() {
-        let shape = &[2, 2];
-        let lhs_data = vec![1.0, 2.0, 3.0, 4.0];
-        let rhs_data = vec![5.0, 6.0, 7.0, 8.0];
-        let expected = vec![6.0, 8.0, 10.0, 12.0];
-        let lhs = unsafe { NdarrayBackend::from_vec(lhs_data, shape) };
-        let rhs = unsafe { NdarrayBackend::from_vec(rhs_data, shape) };
+    test_scalar_op!(
+        ndarray_add_scalar_produces_correct_values,
+        add_scalar,
+        vec![1.0, 2.0, 3.0, 4.0],
+        10.0,
+        vec![11.0, 12.0, 13.0, 14.0]
+    );
 
-        let result = unsafe { NdarrayBackend::add(&lhs, &rhs) };
+    test_scalar_op!(
+        ndarray_add_scalar_works_for_integers,
+        add_scalar,
+        vec![1, 2, 3, 4],
+        10,
+        vec![11, 12, 13, 14]
+    );
 
-        assert_eq!(result.into_raw_vec_and_offset().0, expected);
-    }
-
-    #[test]
-    fn ndarray_add_scalar_preserves_shape() {
-        let shape = &[2, 3, 4];
-        let tensor = unsafe { NdarrayBackend::<f32>::zeros(shape) };
-        let scalar = 5.0;
-
-        let result = NdarrayBackend::add_scalar(&tensor, scalar);
-
-        assert_eq!(result.shape(), shape);
-    }
-
-    #[test]
-    fn ndarray_add_scalar_produces_correct_values() {
-        let shape = &[2, 2];
-        let data = vec![1.0, 2.0, 3.0, 4.0];
-        let scalar = 10.0;
-        let expected = vec![11.0, 12.0, 13.0, 14.0];
-
-        let tensor = unsafe { NdarrayBackend::from_vec(data, shape) };
-        let result = NdarrayBackend::add_scalar(&tensor, scalar);
-
-        assert_eq!(result.into_raw_vec_and_offset().0, expected);
-    }
-
-    #[test]
-    fn ndarray_add_scalar_works_for_integers() {
-        let shape = &[2, 2];
-        let data = vec![1, 2, 3, 4];
-        let scalar = 10;
-        let expected = vec![11, 12, 13, 14];
-
-        let tensor = unsafe { NdarrayBackend::<i32>::from_vec(data, shape) };
-        let result = NdarrayBackend::add_scalar(&tensor, scalar);
-
-        assert_eq!(result.into_raw_vec_and_offset().0, expected);
-    }
-
-    #[test]
-    fn ndarray_sub_produces_correct_shape() {
-        let shape = &[2, 2];
-        let a = unsafe { NdarrayBackend::<f32>::zeros(shape) };
-        let b = unsafe { NdarrayBackend::<f32>::ones(shape) };
-
-        let result = unsafe { NdarrayBackend::sub(&a, &b) };
-
-        assert_eq!(result.shape(), shape);
-    }
-
-    #[test]
-    fn ndarray_sub_produces_correct_values() {
-        let shape = &[2, 2];
-        let a_data = vec![10.0, 8.0, 6.0, 4.0];
-        let b_data = vec![1.0, 2.0, 3.0, 4.0];
-        let expected = vec![9.0, 6.0, 3.0, 0.0];
-
-        let a = unsafe { NdarrayBackend::from_vec(a_data, shape) };
-        let b = unsafe { NdarrayBackend::from_vec(b_data, shape) };
-
-        let result = unsafe { NdarrayBackend::sub(&a, &b) };
-
-        assert_eq!(result.into_raw_vec_and_offset().0, expected);
-    }
-
-    #[test]
-    fn ndarray_mul_produces_correct_shape() {
-        let shape = &[2, 3];
-        let lhs = unsafe { NdarrayBackend::<f32>::ones(shape) };
-        let rhs = unsafe { NdarrayBackend::<f32>::ones(shape) };
-        let result = unsafe { NdarrayBackend::mul(&lhs, &rhs) };
-        assert_eq!(result.shape(), shape);
-    }
-
-    #[test]
-    fn ndarray_mul_produces_correct_values() {
-        let shape = &[2, 2];
-        let lhs_data = vec![1.0, 2.0, 3.0, 4.0];
-        let rhs_data = vec![5.0, 6.0, 7.0, 8.0];
-        let expected = vec![5.0, 12.0, 21.0, 32.0];
-        let lhs = unsafe { NdarrayBackend::from_vec(lhs_data, shape) };
-        let rhs = unsafe { NdarrayBackend::from_vec(rhs_data, shape) };
-
-        let result = unsafe { NdarrayBackend::mul(&lhs, &rhs) };
-
-        assert_eq!(result.into_raw_vec_and_offset().0, expected);
-    }
-
-    #[test]
-    fn ndarray_mul_scalar_preserves_shape() {
-        let shape = &[2, 3, 4];
-        let tensor = unsafe { NdarrayBackend::<f32>::ones(shape) };
-        let scalar = 5.0;
-
-        let result = NdarrayBackend::mul_scalar(&tensor, scalar);
-
-        assert_eq!(result.shape(), shape);
-    }
-
-    #[test]
-    fn ndarray_mul_scalar_produces_correct_values() {
-        let shape = &[2, 2];
-        let data = vec![1.0, 2.0, 3.0, 4.0];
-        let scalar = 10.0;
-        let expected = vec![10.0, 20.0, 30.0, 40.0];
-
-        let tensor = unsafe { NdarrayBackend::from_vec(data, shape) };
-        let result = NdarrayBackend::mul_scalar(&tensor, scalar);
-
-        assert_eq!(result.into_raw_vec_and_offset().0, expected);
-    }
-
-    #[test]
-    fn ndarray_mul_scalar_works_for_integers() {
-        let shape = &[2, 2];
-        let data = vec![1, -2, 3, -4];
-        let scalar = 10;
-        let expected = vec![10, -20, 30, -40];
-
-        let tensor = unsafe { NdarrayBackend::<i32>::from_vec(data, shape) };
-        let result = NdarrayBackend::mul_scalar(&tensor, scalar);
-
-        assert_eq!(result.into_raw_vec_and_offset().0, expected);
-    }
+    test_scalar_op!(
+        ndarray_mul_scalar_produces_correct_values,
+        mul_scalar,
+        vec![1.0, 2.0, 3.0, 4.0],
+        10.0,
+        vec![10.0, 20.0, 30.0, 40.0]
+    );
 }
