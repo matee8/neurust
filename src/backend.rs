@@ -7,6 +7,8 @@
 //! The default backend is [`ndarray`] and can be swapped out using crate
 //! feature flags.
 
+use core::ops::Mul;
+
 use num_traits::{One, Zero};
 
 pub mod ndarray;
@@ -27,7 +29,7 @@ pub mod ndarray;
 /// ensuring all preconditions are met before calling these functions.
 pub trait Backend {
     /// The element type of the tensors.
-    type Primitive: Clone + Zero + One;
+    type Primitive: Clone + Zero + One + Mul;
 
     /// The concrete tensor representation provided by the backend.
     type Tensor;
@@ -61,6 +63,19 @@ pub trait Backend {
 
     /// Returns the number of dimensions of the tensor.
     fn ndim(tensor: &Self::Tensor) -> usize;
+
+    /// Multiplies two tensors element-wise.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `lhs` and `rhs` have the same shape.
+    unsafe fn mul(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor;
+
+    /// Multiplies every element of a tensor by a scalar.
+    fn mul_scalar(
+        tensor: &Self::Tensor,
+        scalar: Self::Primitive,
+    ) -> Self::Tensor;
 
     /// Creates a tensor with all elements set to one, with the given shape.
     ///

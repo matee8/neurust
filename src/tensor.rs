@@ -473,6 +473,23 @@ mod tests {
             tensor.shape.len()
         }
 
+        unsafe fn mul(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
+            Self::Tensor {
+                shape: lhs.shape.to_owned(),
+                value: lhs.value + rhs.value,
+            }
+        }
+
+        fn mul_scalar(
+            tensor: &Self::Tensor,
+            scalar: Self::Primitive,
+        ) -> Self::Tensor {
+            Self::Tensor {
+                shape: tensor.shape.to_owned(),
+                value: tensor.value + scalar,
+            }
+        }
+
         unsafe fn ones(shape: &[usize]) -> Self::Tensor {
             Self::Tensor {
                 shape: shape.to_owned(),

@@ -58,6 +58,19 @@ where
     }
 
     #[inline]
+    unsafe fn mul(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
+        lhs * rhs
+    }
+
+    #[inline]
+    fn mul_scalar(
+        tensor: &Self::Tensor,
+        scalar: Self::Primitive,
+    ) -> Self::Tensor {
+        tensor * scalar
+    }
+
+    #[inline]
     unsafe fn ones(shape: &[usize]) -> Self::Tensor {
         ArrayD::ones(IxDyn(shape))
     }
@@ -223,6 +236,66 @@ mod tests {
         let b = unsafe { NdarrayBackend::from_vec(b_data, shape) };
 
         let result = unsafe { NdarrayBackend::sub(&a, &b) };
+
+        assert_eq!(result.into_raw_vec_and_offset().0, expected);
+    }
+
+    #[test]
+    fn ndarray_mul_produces_correct_shape() {
+        let shape = &[2, 3];
+        let lhs = unsafe { NdarrayBackend::<f32>::ones(shape) };
+        let rhs = unsafe { NdarrayBackend::<f32>::ones(shape) };
+        let result = unsafe { NdarrayBackend::mul(&lhs, &rhs) };
+        assert_eq!(result.shape(), shape);
+    }
+
+    #[test]
+    fn ndarray_mul_produces_correct_values() {
+        let shape = &[2, 2];
+        let lhs_data = vec![1.0, 2.0, 3.0, 4.0];
+        let rhs_data = vec![5.0, 6.0, 7.0, 8.0];
+        let expected = vec![5.0, 12.0, 21.0, 32.0];
+        let lhs = unsafe { NdarrayBackend::from_vec(lhs_data, shape) };
+        let rhs = unsafe { NdarrayBackend::from_vec(rhs_data, shape) };
+
+        let result = unsafe { NdarrayBackend::mul(&lhs, &rhs) };
+
+        assert_eq!(result.into_raw_vec_and_offset().0, expected);
+    }
+
+    #[test]
+    fn ndarray_mul_scalar_preserves_shape() {
+        let shape = &[2, 3, 4];
+        let tensor = unsafe { NdarrayBackend::<f32>::ones(shape) };
+        let scalar = 5.0;
+
+        let result = NdarrayBackend::mul_scalar(&tensor, scalar);
+
+        assert_eq!(result.shape(), shape);
+    }
+
+    #[test]
+    fn ndarray_mul_scalar_produces_correct_values() {
+        let shape = &[2, 2];
+        let data = vec![1.0, 2.0, 3.0, 4.0];
+        let scalar = 10.0;
+        let expected = vec![10.0, 20.0, 30.0, 40.0];
+
+        let tensor = unsafe { NdarrayBackend::from_vec(data, shape) };
+        let result = NdarrayBackend::mul_scalar(&tensor, scalar);
+
+        assert_eq!(result.into_raw_vec_and_offset().0, expected);
+    }
+
+    #[test]
+    fn ndarray_mul_scalar_works_for_integers() {
+        let shape = &[2, 2];
+        let data = vec![1, -2, 3, -4];
+        let scalar = 10;
+        let expected = vec![10, -20, 30, -40];
+
+        let tensor = unsafe { NdarrayBackend::<i32>::from_vec(data, shape) };
+        let result = NdarrayBackend::mul_scalar(&tensor, scalar);
 
         assert_eq!(result.into_raw_vec_and_offset().0, expected);
     }
