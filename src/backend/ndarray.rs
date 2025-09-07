@@ -147,6 +147,19 @@ where
     }
 
     #[inline]
+    unsafe fn transpose(tensor: &Self::Tensor) -> Self::Tensor {
+        // SAFETY: The caller guarantees the tensor is 2D.
+        let view = unsafe {
+            tensor
+                .view()
+                .into_dimensionality::<ndarray::Ix2>()
+                .unwrap_unchecked()
+        };
+
+        view.t().as_standard_layout().into_owned().into_dyn()
+    }
+
+    #[inline]
     unsafe fn zeros(shape: &[usize]) -> Self::Tensor {
         ArrayD::zeros(IxDyn(shape))
     }
@@ -255,6 +268,20 @@ mod tests {
 
         assert_eq!(reshaped.shape(), &[3, 2]);
         assert_eq!(reshaped.into_raw_vec_and_offset().0, data_clone);
+    }
+
+    #[test]
+    fn ndarray_transpose_produces_correct_result() {
+        let tensor = unsafe {
+            NdarrayBackend::from_vec(vec![1., 2., 3., 4., 5., 6.], &[2, 3])
+        };
+        let transposed = unsafe { NdarrayBackend::transpose(&tensor) };
+
+        assert_eq!(transposed.shape(), &[3, 2]);
+        assert_eq!(
+            transposed.into_raw_vec_and_offset().0,
+            vec![1.0, 4.0, 2.0, 5.0, 3.0, 6.0]
+        );
     }
 
     test_binary_op!(

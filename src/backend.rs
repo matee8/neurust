@@ -141,6 +141,13 @@ pub trait Backend {
         scalar: Self::Primitive,
     ) -> Self::Tensor;
 
+    /// Transposes a 2D tensor, swapping its axes.
+    ///
+    /// # Safety
+    ///
+    /// The calles must ensure that the tensor is 2-dimensional.
+    unsafe fn transpose(tensor: &Self::Tensor) -> Self::Tensor;
+
     /// Creates a tensor with all elements set to zero, with the given shape.
     ///
     /// # Safety

@@ -596,6 +596,15 @@ mod tests {
             }
         }
 
+        unsafe fn transpose(tensor: &Self::Tensor) -> Self::Tensor {
+            let mut new_shape = tensor.shape.clone();
+            new_shape.reverse();
+            Self::Tensor {
+                shape: new_shape,
+                value: tensor.value,
+            }
+        }
+
         unsafe fn zeros(shape: &[usize]) -> Self::Tensor {
             Self::Tensor {
                 shape: shape.to_owned(),
