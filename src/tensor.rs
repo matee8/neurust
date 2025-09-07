@@ -211,6 +211,27 @@ where
         self.checked_binary_op(other, B::sub)
     }
 
+    /// Transpose a 2D tensor, swapping its axes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`IncompatibleTensorsError::InvalidDimension`] if the tensor
+    /// is not 2-dimensional.
+    #[inline]
+    pub fn checked_transpose(&self) -> Result<Self, IncompatibleTensorsError> {
+        if self.ndim() != 2 {
+            return Err(IncompatibleTensorsError::InvalidDimension);
+        }
+
+        // SAFETY: We have verified that the tensor is 2D.
+        let inner = unsafe { B::transpose(&self.inner) };
+
+        Ok(Self {
+            inner,
+            _marker: PhantomData,
+        })
+    }
+
     /// Creates a tensor from a vector and a shape.
     ///
     /// # Errors
@@ -310,6 +331,23 @@ where
     #[must_use]
     pub fn shape(&self) -> &[usize] {
         B::shape(&self.inner)
+    }
+
+    /// Transpose a 2D tensor, swapping its axes.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the tensor is not 2-dimensional.
+    #[inline]
+    #[must_use]
+    #[expect(
+        clippy::expect_used,
+        reason = r#"The panic is documented, and end users could use the checked
+                    version instead, `checked_transpose`."#
+    )]
+    pub fn transpose(&self) -> Self {
+        self.checked_transpose()
+            .expect("transpose is only valid for 2D tensors")
     }
 
     /// Create a tensor containing only zeros.
@@ -903,6 +941,27 @@ mod tests {
         fn reshape_panics_on_mismatch() {
             let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
             let _result = tensor.reshape(&[1, 7]);
+        }
+
+        #[test]
+        fn transpose_succeeds_on_2d_tensor() {
+            let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+            let transposed = tensor.checked_transpose().unwrap();
+            assert_eq!(transposed.shape(), &[3, 2]);
+        }
+
+        #[test]
+        fn transpose_fails_on_non_2d_tensor() {
+            let tensor = TensorBase::<MockBackend>::zeros(&[2, 3, 4]).unwrap();
+            let err = tensor.checked_transpose().unwrap_err();
+            assert_eq!(err, IncompatibleTensorsError::InvalidDimension);
+        }
+
+        #[test]
+        #[should_panic(expected = "transpose is only valid for 2D tensors")]
+        fn transpose_panics_on_non_2d_tensor() {
+            let tensor = TensorBase::<MockBackend>::zeros(&[1, 2, 3]).unwrap();
+            let _result = tensor.transpose();
         }
     }
 }
