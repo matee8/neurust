@@ -372,6 +372,23 @@ mod tests {
             }
         }
 
+        unsafe fn div(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
+            Self::Tensor {
+                shape: lhs.shape.clone(),
+                value: lhs.value / rhs.value,
+            }
+        }
+
+        fn div_scalar(
+            tensor: &Self::Tensor,
+            scalar: Self::Primitive,
+        ) -> Self::Tensor {
+            Self::Tensor {
+                shape: tensor.shape.to_owned(),
+                value: tensor.value + scalar,
+            }
+        }
+
         unsafe fn from_vec(
             data: Vec<Self::Primitive>,
             shape: &[usize],

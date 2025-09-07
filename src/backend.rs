@@ -7,6 +7,8 @@
 //! The default backend is [`ndarray`] and can be swapped out using crate
 //! feature flags.
 
+use core::ops::{Add, Div, Mul, Sub};
+
 use num_traits::{One, Zero};
 
 pub mod ndarray;
@@ -27,8 +29,14 @@ pub mod ndarray;
 /// ensuring all preconditions are met before calling these functions.
 pub trait Backend {
     /// The element type of the tensors.
-    type Primitive: Clone + Zero + One;
-
+    type Primitive: Clone
+        + Copy
+        + Zero
+        + One
+        + Add<Output = Self::Primitive>
+        + Sub<Output = Self::Primitive>
+        + Mul<Output = Self::Primitive>
+        + Div<Output = Self::Primitive>;
     /// The concrete tensor representation provided by the backend.
     type Tensor: Clone;
 
@@ -41,6 +49,19 @@ pub trait Backend {
 
     /// Adds a scalar to every element of a tensor.
     fn add_scalar(
+        tensor: &Self::Tensor,
+        scalar: Self::Primitive,
+    ) -> Self::Tensor;
+
+    /// Divides the first tensor by the second, element-wise.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `lhs` and `rhs` have the same shape.
+    unsafe fn div(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor;
+
+    /// Divides every element of the tensor by a scalar.
+    fn div_scalar(
         tensor: &Self::Tensor,
         scalar: Self::Primitive,
     ) -> Self::Tensor;

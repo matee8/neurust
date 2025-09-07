@@ -1,6 +1,9 @@
 //! [`ndarray`] crate backend.
 
-use core::{marker::PhantomData, ops::Sub};
+use core::{
+    marker::PhantomData,
+    ops::{Add, Div, Mul, Sub},
+};
 
 use ndarray::{
     ArrayBase, ArrayD, Dim, IxDyn, IxDynImpl, OwnedRepr, ScalarOperand,
@@ -20,8 +23,20 @@ where
 
 impl<T> Backend for NdarrayBackend<T>
 where
-    T: Clone + Copy + Zero + One + ScalarOperand + Sub<Output = T>,
+    T: Clone
+        + Copy
+        + Zero
+        + One
+        + ScalarOperand
+        + Add<Output = T>
+        + Sub<Output = T>
+        + Mul<Output = T>
+        + Div<Output = T>,
     for<'borrow> &'borrow ArrayBase<OwnedRepr<T>, Dim<IxDynImpl>>: Sub<
+            &'borrow ArrayBase<OwnedRepr<T>, Dim<IxDynImpl>>,
+            Output = ArrayBase<OwnedRepr<T>, Dim<IxDynImpl>>,
+        >,
+    for<'borrow> &'borrow ArrayBase<OwnedRepr<T>, Dim<IxDynImpl>>: Div<
             &'borrow ArrayBase<OwnedRepr<T>, Dim<IxDynImpl>>,
             Output = ArrayBase<OwnedRepr<T>, Dim<IxDynImpl>>,
         >,
@@ -40,6 +55,19 @@ where
         scalar: Self::Primitive,
     ) -> Self::Tensor {
         tensor + scalar
+    }
+
+    #[inline]
+    unsafe fn div(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
+        lhs / rhs
+    }
+
+    #[inline]
+    fn div_scalar(
+        tensor: &Self::Tensor,
+        scalar: Self::Primitive,
+    ) -> Self::Tensor {
+        tensor.mapv(|elem| elem / scalar)
     }
 
     #[inline]
@@ -240,5 +268,29 @@ mod tests {
         vec![10, 20, 30, 40],
         5,
         vec![5, 15, 25, 35]
+    );
+
+    test_binary_op!(
+        ndarray_div_produces_correct_values,
+        div,
+        vec![10.0, 20.0, 30.0, 40.0],
+        vec![2.0, 5.0, 6.0, 8.0],
+        vec![5.0, 4.0, 5.0, 5.0]
+    );
+
+    test_binary_op!(
+        ndarray_integer_div_truncates,
+        div,
+        vec![10, 21, 32, 43],
+        vec![3, 5, 6, 8],
+        vec![3, 4, 5, 5]
+    );
+
+    test_scalar_op!(
+        ndarray_div_scalar_produces_correct_values,
+        div_scalar,
+        vec![10.0, 20.0, 30.0, 40.0],
+        10.0,
+        vec![1.0, 2.0, 3.0, 4.0]
     );
 }
