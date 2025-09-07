@@ -421,6 +421,13 @@ mod tests {
             tensor.shape.len()
         }
 
+        unsafe fn matmul(
+            lhs: &Self::Tensor,
+            rhs: &Self::Tensor,
+        ) -> Self::Tensor {
+            unsafe { Self::mul(lhs, rhs) }
+        }
+
         unsafe fn mul(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
             Self::Tensor {
                 shape: lhs.shape.to_owned(),

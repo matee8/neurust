@@ -13,6 +13,11 @@ use num_traits::{One, Zero};
 
 pub mod ndarray;
 
+pub trait ArithmeticPrimitive:
+    Clone + Copy + Zero + One + Add<Output = Self>
+{
+}
+
 /// A trait that defines the contract for tensor operations that every
 /// backend must fulfill.
 ///
@@ -82,6 +87,15 @@ pub trait Backend {
 
     /// Returns the number of dimensions of the tensor.
     fn ndim(tensor: &Self::Tensor) -> usize;
+
+    /// Performs matrix multiplication of two 2D tensors.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that both `lhs` and `rhs` are 2D tensors and that
+    /// the inner dimensions are compatible
+    /// (`lhs.shape()[1] == rhs.shape()[0]`).
+    unsafe fn matmul(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor;
 
     /// Multiplies two tensors element-wise.
     ///

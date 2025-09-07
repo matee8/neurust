@@ -86,6 +86,24 @@ where
     }
 
     #[inline]
+    unsafe fn matmul(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
+        // SAFETY: The caller guarantees that both tensors are 2D. The `unwrap`
+        // is therefore safe.
+        let lhs_view = unsafe {
+            lhs.view()
+                .into_dimensionality::<ndarray::Ix2>()
+                .unwrap_unchecked()
+        };
+        // SAFETY: See the one above.
+        let rhs_view = unsafe {
+            rhs.view()
+                .into_dimensionality::<ndarray::Ix2>()
+                .unwrap_unchecked()
+        };
+        lhs_view.dot(&rhs_view).into_dyn()
+    }
+
+    #[inline]
     unsafe fn mul(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
         lhs * rhs
     }
@@ -204,6 +222,21 @@ mod tests {
 
         assert_eq!(array.shape(), shape);
         assert_eq!(array.into_raw_vec_and_offset().0, data_clone);
+    }
+
+    #[test]
+    fn ndarray_matmul_produces_correct_result() {
+        let lhs =
+            unsafe { NdarrayBackend::from_vec(vec![1., 2., 3., 4.], &[2, 2]) };
+        let rhs =
+            unsafe { NdarrayBackend::from_vec(vec![5., 6., 7., 8.], &[2, 2]) };
+        let result = unsafe { NdarrayBackend::matmul(&lhs, &rhs) };
+
+        assert_eq!(result.shape(), &[2, 2]);
+        assert_eq!(
+            result.into_raw_vec_and_offset().0,
+            vec![19.0, 22.0, 43.0, 50.0]
+        );
     }
 
     test_binary_op!(
