@@ -6,7 +6,7 @@
 
 use core::{
     marker::PhantomData,
-    ops::{Add, Mul, Sub},
+    ops::{Add, Div, Mul, Sub},
 };
 
 use thiserror::Error;
@@ -96,6 +96,20 @@ where
         other: &Self,
     ) -> Result<Self, IncompatibleTensorsError> {
         self.checked_binary_op(other, B::add)
+    }
+
+    /// Performs element-wise division between two tensors.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`IncompatibleTensorsError::ShapeMismatch`] if the tensors
+    /// do not have the same shape.
+    #[inline]
+    pub fn checked_div(
+        &self,
+        other: &Self,
+    ) -> Result<Self, IncompatibleTensorsError> {
+        self.checked_binary_op(other, B::div)
     }
 
     /// Performs element-wise multiplication between two tensors.
@@ -333,10 +347,12 @@ macro_rules! impl_scalar_op {
 impl_binary_op!(Add, add, checked_add);
 impl_binary_op!(Sub, sub, checked_sub);
 impl_binary_op!(Mul, mul, checked_mul);
+impl_binary_op!(Div, div, checked_div);
 
 impl_scalar_op!(Add, add, add_scalar, f32, f64, i8, i16, i32, i64, i128);
 impl_scalar_op!(Sub, sub, sub_scalar, f32, f64, i8, i16, i32, i64, i128);
 impl_scalar_op!(Mul, mul, mul_scalar, f32, f64, i8, i16, i32, i64, i128);
+impl_scalar_op!(Div, div, div_scalar, f32, f64, i8, i16, i32, i64, i128);
 
 #[cfg(test)]
 mod tests {
@@ -385,7 +401,7 @@ mod tests {
         ) -> Self::Tensor {
             Self::Tensor {
                 shape: tensor.shape.to_owned(),
-                value: tensor.value + scalar,
+                value: tensor.value / scalar,
             }
         }
 
@@ -585,7 +601,7 @@ mod tests {
     }
 
     mod ops {
-        use core::ops::{Add, Mul, Sub};
+        use core::ops::{Add, Div, Mul, Sub};
 
         use crate::tensor::{
             IncompatibleTensorsError, TensorBase, tests::MockBackend,
@@ -669,9 +685,11 @@ mod tests {
         test_binary_op!(test_add, checked_add, Add, add, 2.0, 3.0, 5.0);
         test_binary_op!(test_sub, checked_sub, Sub, sub, 5.0, 3.0, 2.0);
         test_binary_op!(test_mul, checked_mul, Mul, mul, 2.0, 3.0, 6.0);
+        test_binary_op!(div, checked_div, Div, div, 10.0, 2.0, 5.0);
 
         test_scalar_op!(add, Add, add, 1.0, 10.0, 11.0);
         test_scalar_op!(sub, Sub, sub, 10.0, 5.0, 5.0);
         test_scalar_op!(mul, Mul, mul, 3.0, 4.0, 12.0);
+        test_scalar_op!(div, Div, div, 20.0, 4.0, 5.0);
     }
 }
