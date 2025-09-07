@@ -517,6 +517,16 @@ mod tests {
             }
         }
 
+        unsafe fn reshape(
+            tensor: &Self::Tensor,
+            shape: &[usize],
+        ) -> Self::Tensor {
+            Self::Tensor {
+                shape: shape.to_owned(),
+                value: tensor.value,
+            }
+        }
+
         fn shape(tensor: &Self::Tensor) -> &[usize] {
             &tensor.shape
         }

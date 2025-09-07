@@ -117,6 +117,14 @@ pub trait Backend {
     /// See the safety notes for [`Backend::zeros()`].
     unsafe fn ones(shape: &[usize]) -> Self::Tensor;
 
+    /// Changes the shape of the tensor without changing its data.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the new shape is valid and has the same
+    /// number of elements as the original tensor.
+    unsafe fn reshape(tensor: &Self::Tensor, shape: &[usize]) -> Self::Tensor;
+
     /// Returns the shape of the tensor as a slice of dimensions.
     fn shape(tensor: &Self::Tensor) -> &[usize];
 

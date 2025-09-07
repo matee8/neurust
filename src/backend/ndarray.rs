@@ -122,6 +122,13 @@ where
     }
 
     #[inline]
+    unsafe fn reshape(tensor: &Self::Tensor, shape: &[usize]) -> Self::Tensor {
+        // SAFETY: The caller guarantees that the new shape is valid and has the
+        // same number of elements as the original tensor.
+        unsafe { tensor.to_shape(shape).unwrap_unchecked().into_owned() }
+    }
+
+    #[inline]
     fn shape(tensor: &Self::Tensor) -> &[usize] {
         tensor.shape()
     }
@@ -237,6 +244,17 @@ mod tests {
             result.into_raw_vec_and_offset().0,
             vec![19.0, 22.0, 43.0, 50.0]
         );
+    }
+
+    #[test]
+    fn ndarray_reshape_produces_correct_result() {
+        let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let data_clone = data.clone();
+        let tensor = unsafe { NdarrayBackend::from_vec(data, &[2, 3]) };
+        let reshaped = unsafe { NdarrayBackend::reshape(&tensor, &[3, 2]) };
+
+        assert_eq!(reshaped.shape(), &[3, 2]);
+        assert_eq!(reshaped.into_raw_vec_and_offset().0, data_clone);
     }
 
     test_binary_op!(
