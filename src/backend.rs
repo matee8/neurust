@@ -145,7 +145,7 @@ pub trait Backend {
     ///
     /// # Safety
     ///
-    /// The calles must ensure that the tensor is 2-dimensional.
+    /// The caller must ensure that the tensor is 2-dimensional.
     unsafe fn transpose(tensor: &Self::Tensor) -> Self::Tensor;
 
     /// Creates a tensor with all elements set to zero, with the given shape.
