@@ -4,7 +4,10 @@
 //! parameterized by a [backend](crate::backend::Backend), and convenient type
 //! aliases for the most common use cases.
 
-use core::{marker::PhantomData, ops::Add};
+use core::{
+    marker::PhantomData,
+    ops::{Add, Sub},
+};
 
 use thiserror::Error;
 
@@ -322,8 +325,10 @@ macro_rules! impl_scalar_op {
 }
 
 impl_binary_op!(Add, add, checked_add);
+impl_binary_op!(Sub, sub, checked_sub);
 
 impl_scalar_op!(Add, add, add_scalar, f32, f64, i8, i16, i32, i64, i128);
+impl_scalar_op!(Sub, sub, sub_scalar, f32, f64, i8, i16, i32, i64, i128);
 
 #[cfg(test)]
 mod tests {
@@ -774,25 +779,14 @@ mod tests {
     }
 
     #[test]
-    fn sub_returns_correct_shape() {
-        let a = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
-        let b = TensorBase::<MockBackend>::ones(&[2, 3]).unwrap();
-        let result = a.checked_sub(&b);
-
-        assert!(result.is_ok());
-        let sum_tensor = result.unwrap();
-        assert_eq!(sum_tensor.shape(), &[2, 3]);
-    }
-
-    #[test]
-    fn sub_returns_correct_values() {
+    fn checked_sub_succeeds_with_matching_shapes() {
         let a = TensorBase::<MockBackend>::ones(&[2, 3]).unwrap();
         let b = TensorBase::<MockBackend>::ones(&[2, 3]).unwrap();
         let result = a.checked_sub(&b);
-
         assert!(result.is_ok());
-        let sum_tensor = result.unwrap();
-        assert_eq!(sum_tensor.inner.value, 0.0);
+        let diff_tensor = result.unwrap();
+        assert_eq!(diff_tensor.shape(), &[2, 3]);
+        assert_eq!(diff_tensor.inner.value, 0.0);
     }
 
     #[test]
@@ -800,12 +794,34 @@ mod tests {
         let a = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
         let b = TensorBase::<MockBackend>::ones(&[3, 2]).unwrap();
         let result = a.checked_sub(&b);
-
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
             IncompatibleTensorsError::ShapeMismatch
         );
+    }
+
+    #[test]
+    fn sub_op_owned_owned_succeeds() {
+        let a = TensorBase::<MockBackend>::ones(&[2, 2]).unwrap();
+        let b = TensorBase::<MockBackend>::ones(&[2, 2]).unwrap();
+        let c = a - b;
+        assert_eq!(c.inner.value, 0.0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn sub_op_owned_owned_panics_on_mismatch() {
+        let a = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+        let b = TensorBase::<MockBackend>::ones(&[3, 2]).unwrap();
+        let _result = a - b;
+    }
+
+    #[test]
+    fn sub_scalar_operator_succeeds() {
+        let tensor = TensorBase::<MockBackend>::ones(&[2, 2]).unwrap();
+        let result = &tensor - 1.0;
+        assert_eq!(result.inner.value, 0.0);
     }
 }
 
@@ -912,5 +928,30 @@ mod type_alias_tests {
             result.unwrap_err(),
             IncompatibleTensorsError::ShapeMismatch
         );
+    }
+
+    #[test]
+    fn alias_sub_produces_correct_values() {
+        let a = Tensor::<f32>::from_vec(vec![10.0, 9.0, 8.0, 7.0], &[2, 2])
+            .unwrap();
+        let b =
+            Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[2, 2]).unwrap();
+        let result = a - b;
+        assert_eq!(result.inner.as_slice().unwrap(), &[9.0, 7.0, 5.0, 3.0]);
+    }
+
+    #[test]
+    fn alias_sub_scalar_produces_correct_values() {
+        let a = Tensor::<f32>::from_vec(vec![10.0, 9.0, 8.0, 7.0], &[2, 2])
+            .unwrap();
+        let result = a - 5.0;
+        assert_eq!(result.inner.as_slice().unwrap(), &[5.0, 4.0, 3.0, 2.0]);
+    }
+
+    #[test]
+    fn alias_sub_scalar_works_for_integers() {
+        let a = Tensor::<i32>::from_vec(vec![10, 20, -5, 0], &[2, 2]).unwrap();
+        let result = a - 5;
+        assert_eq!(result.inner.as_slice().unwrap(), &[5, 15, -10, -5]);
     }
 }
