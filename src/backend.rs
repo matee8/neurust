@@ -30,7 +30,7 @@ pub trait Backend {
     type Primitive: Clone + Zero + One;
 
     /// The concrete tensor representation provided by the backend.
-    type Tensor;
+    type Tensor: Clone;
 
     /// Adds two tensors element-wise.
     ///

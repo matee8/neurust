@@ -89,3 +89,6 @@ question_mark_used = "allow"
 separated_literal_suffix = "allow"
 map_err_ignore = "allow"
 arbitrary_source_item_ordering = "allow"
+
+[dev-dependencies]
+paste = "1.0.0"
