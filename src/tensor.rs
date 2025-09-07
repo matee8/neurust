@@ -169,6 +169,34 @@ where
         self.checked_binary_op(other, B::mul)
     }
 
+    /// Returns a new tensor with the specified shape, without changing the
+    /// underlying data.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`ShapeError`] if:
+    /// - The new shape is invalid (contains a zero, overflows `isize`).
+    /// - The total number of elements in the new shape does not match the
+    ///   number of elements in the current tensor.
+    #[inline]
+    pub fn checked_reshape(&self, shape: &[usize]) -> Result<Self, ShapeError> {
+        let new_num_elements = Self::get_validated_num_elements(shape)?;
+        let current_num_elements = self.shape().iter().product();
+
+        if new_num_elements != current_num_elements {
+            return Err(ShapeError::ElementCountMismatch);
+        }
+
+        // SAFETY: The new shape is valid and the element count is guaranteed
+        // to match the original tensor's element count.
+        let inner = unsafe { B::reshape(&self.inner, shape) };
+
+        Ok(Self {
+            inner,
+            _marker: PhantomData,
+        })
+    }
+
     /// Performs element-wise subtraction between two tensors.
     ///
     /// # Errors
@@ -255,6 +283,26 @@ where
             inner,
             _marker: PhantomData,
         })
+    }
+
+    /// Returns a new tensor with the specified shape, without changing the
+    /// underlying data.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the new shape is not compatible with the total number of
+    /// elements in the tensor. See [`Self::checked_reshape()`] for more
+    /// details.
+    #[inline]
+    #[must_use]
+    #[expect(
+        clippy::expect_used,
+        reason = r#"The panic is documented, and end users could use the checked
+                    version instead, `checked_reshape`."#
+    )]
+    pub fn reshape(&self, shape: &[usize]) -> Self {
+        self.checked_reshape(shape)
+            .expect("incompatible shape for reshape operation.")
     }
 
     /// Returns the shape of the tensor as a slice of dimensions.
@@ -686,7 +734,8 @@ mod tests {
         use core::ops::{Add, Div, Mul, Sub};
 
         use crate::tensor::{
-            IncompatibleTensorsError, TensorBase, tests::MockBackend,
+            IncompatibleTensorsError, ShapeError, TensorBase,
+            tests::MockBackend,
         };
 
         macro_rules! test_binary_op {
@@ -758,7 +807,7 @@ mod tests {
                         let tensor = TensorBase::<MockBackend>::from_vec(vec![$initial_val; 4], &[2, 2]).unwrap();
                         let result = (&tensor).$op_method($scalar);
                         assert_eq!(result.inner.value, $expected_val);
-                        assert_eq!(tensor.inner.value, $initial_val); // Ensure original is untouched
+                        assert_eq!(tensor.inner.value, $initial_val);
                     }
                 }
             };
@@ -816,6 +865,35 @@ mod tests {
             let a = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
             let b = TensorBase::<MockBackend>::zeros(&[4, 5]).unwrap();
             let _result = a.matmul(&b);
+        }
+
+        #[test]
+        fn reshape_succeeds_on_valid_shape() {
+            let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+            let reshaped = tensor.checked_reshape(&[3, 2]);
+            assert!(reshaped.is_ok());
+            assert_eq!(reshaped.unwrap().shape(), &[3, 2]);
+        }
+
+        #[test]
+        fn reshape_fails_on_mismatched_element_count() {
+            let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+            let err = tensor.checked_reshape(&[4, 2]).unwrap_err();
+            assert_eq!(err, ShapeError::ElementCountMismatch);
+        }
+
+        #[test]
+        fn reshape_fails_on_invalid_target_shape() {
+            let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+            let err = tensor.checked_reshape(&[6, 0]).unwrap_err();
+            assert_eq!(err, ShapeError::ZeroDim);
+        }
+
+        #[test]
+        #[should_panic(expected = "incompatible shape for reshape operation")]
+        fn reshape_panics_on_mismatch() {
+            let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+            let _result = tensor.reshape(&[1, 7]);
         }
     }
 }
