@@ -6,7 +6,7 @@
 
 use core::{
     marker::PhantomData,
-    ops::{Add, Sub},
+    ops::{Add, Mul, Sub},
 };
 
 use thiserror::Error;
@@ -98,6 +98,23 @@ where
         self.checked_binary_op(other, |lhs, rhs| {
             // SAFETY: The shapes are guaranteed to be the same.
             unsafe { B::add(lhs, rhs) }
+        })
+    }
+
+    /// Performs element-wise multiplication between two tensors.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`IncompatibleTensorsError::ShapeMismatch`] if the tensors do
+    /// not have the samep shape.
+    #[inline]
+    pub fn checked_mul(
+        &self,
+        other: &Self,
+    ) -> Result<Self, IncompatibleTensorsError> {
+        self.checked_binary_op(other, |lhs, rhs| {
+            // SAFETY: The shapes are guaranteed to be the same.
+            unsafe { B::mul(lhs, rhs) }
         })
     }
 
@@ -326,9 +343,11 @@ macro_rules! impl_scalar_op {
 
 impl_binary_op!(Add, add, checked_add);
 impl_binary_op!(Sub, sub, checked_sub);
+impl_binary_op!(Mul, mul, checked_mul);
 
 impl_scalar_op!(Add, add, add_scalar, f32, f64, i8, i16, i32, i64, i128);
 impl_scalar_op!(Sub, sub, sub_scalar, f32, f64, i8, i16, i32, i64, i128);
+impl_scalar_op!(Mul, mul, mul_scalar, f32, f64, i8, i16, i32, i64, i128);
 
 #[cfg(test)]
 mod tests {
@@ -385,7 +404,7 @@ mod tests {
         unsafe fn mul(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
             Self::Tensor {
                 shape: lhs.shape.to_owned(),
-                value: lhs.value + rhs.value,
+                value: lhs.value * rhs.value,
             }
         }
 
@@ -395,7 +414,7 @@ mod tests {
         ) -> Self::Tensor {
             Self::Tensor {
                 shape: tensor.shape.to_owned(),
-                value: tensor.value + scalar,
+                value: tensor.value * scalar,
             }
         }
 
@@ -823,6 +842,56 @@ mod tests {
         let result = &tensor - 1.0;
         assert_eq!(result.inner.value, 0.0);
     }
+
+    #[test]
+    fn checked_mul_succeeds_with_matching_shapes() {
+        let a =
+            TensorBase::<MockBackend>::from_vec(vec![2.0; 6], &[2, 3]).unwrap();
+        let b =
+            TensorBase::<MockBackend>::from_vec(vec![3.0; 6], &[2, 3]).unwrap();
+        let result = a.checked_mul(&b);
+        assert!(result.is_ok());
+        let mul_tensor = result.unwrap();
+        assert_eq!(mul_tensor.shape(), &[2, 3]);
+        assert_eq!(mul_tensor.inner.value, 6.0);
+    }
+
+    #[test]
+    fn mul_fails_with_mismatched_shapes() {
+        let a = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+        let b = TensorBase::<MockBackend>::ones(&[3, 2]).unwrap();
+        let result = a.checked_mul(&b);
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            IncompatibleTensorsError::ShapeMismatch
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn mul_operator_panics_on_mismatch() {
+        let a = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+        let b = TensorBase::<MockBackend>::ones(&[3, 2]).unwrap();
+        let _result = a * b;
+    }
+
+    #[test]
+    fn mul_scalar_operator_owned_succeeds() {
+        let tensor =
+            TensorBase::<MockBackend>::from_vec(vec![3.0; 4], &[2, 2]).unwrap();
+        let result = tensor * 3.0; // Consumes tensor
+        assert_eq!(result.inner.value, 9.0);
+    }
+
+    #[test]
+    fn mul_scalar_operator_borrowed_succeeds() {
+        let tensor =
+            TensorBase::<MockBackend>::from_vec(vec![3.0; 4], &[2, 2]).unwrap();
+        let result = &tensor * 3.0; // Borrows tensor
+        assert_eq!(result.inner.value, 9.0);
+        assert_eq!(tensor.inner.value, 3.0); // Verify original tensor is untouched
+    }
 }
 
 #[cfg(all(test, feature = "ndarray-backend"))]
@@ -953,5 +1022,30 @@ mod type_alias_tests {
         let a = Tensor::<i32>::from_vec(vec![10, 20, -5, 0], &[2, 2]).unwrap();
         let result = a - 5;
         assert_eq!(result.inner.as_slice().unwrap(), &[5, 15, -10, -5]);
+    }
+
+    #[test]
+    fn alias_mul_produces_correct_values() {
+        let a =
+            Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[2, 2]).unwrap();
+        let b =
+            Tensor::<f32>::from_vec(vec![5.0, 6.0, 7.0, 8.0], &[2, 2]).unwrap();
+        let result = a * b;
+        assert_eq!(result.inner.as_slice().unwrap(), &[5.0, 12.0, 21.0, 32.0]);
+    }
+
+    #[test]
+    fn alias_mul_scalar_produces_correct_values() {
+        let a =
+            Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[2, 2]).unwrap();
+        let result = a * 10.0;
+        assert_eq!(result.inner.as_slice().unwrap(), &[10.0, 20.0, 30.0, 40.0]);
+    }
+
+    #[test]
+    fn alias_mul_scalar_works_for_integers() {
+        let a = Tensor::<i32>::from_vec(vec![1, -2, 3, -4], &[2, 2]).unwrap();
+        let result = a * 10;
+        assert_eq!(result.inner.as_slice().unwrap(), &[10, -20, 30, -40]);
     }
 }
