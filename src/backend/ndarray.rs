@@ -81,11 +81,6 @@ where
     }
 
     #[inline]
-    fn ndim(tensor: &Self::Tensor) -> usize {
-        tensor.ndim()
-    }
-
-    #[inline]
     unsafe fn matmul(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
         // SAFETY: The caller guarantees that both tensors are 2D. The `unwrap`
         // is therefore safe.
@@ -114,6 +109,11 @@ where
         scalar: Self::Primitive,
     ) -> Self::Tensor {
         tensor * scalar
+    }
+
+    #[inline]
+    fn ndim(tensor: &Self::Tensor) -> usize {
+        tensor.ndim()
     }
 
     #[inline]

@@ -85,9 +85,6 @@ pub trait Backend {
         shape: &[usize],
     ) -> Self::Tensor;
 
-    /// Returns the number of dimensions of the tensor.
-    fn ndim(tensor: &Self::Tensor) -> usize;
-
     /// Performs matrix multiplication of two 2D tensors.
     ///
     /// # Safety
@@ -109,6 +106,9 @@ pub trait Backend {
         tensor: &Self::Tensor,
         scalar: Self::Primitive,
     ) -> Self::Tensor;
+
+    /// Returns the number of dimensions of the tensor.
+    fn ndim(tensor: &Self::Tensor) -> usize;
 
     /// Creates a tensor with all elements set to one, with the given shape.
     ///
