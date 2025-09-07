@@ -95,10 +95,7 @@ where
         &self,
         other: &Self,
     ) -> Result<Self, IncompatibleTensorsError> {
-        self.checked_binary_op(other, |lhs, rhs| {
-            // SAFETY: The shapes are guaranteed to be the same.
-            unsafe { B::add(lhs, rhs) }
-        })
+        self.checked_binary_op(other, B::add)
     }
 
     /// Performs element-wise multiplication between two tensors.
@@ -112,10 +109,7 @@ where
         &self,
         other: &Self,
     ) -> Result<Self, IncompatibleTensorsError> {
-        self.checked_binary_op(other, |lhs, rhs| {
-            // SAFETY: The shapes are guaranteed to be the same.
-            unsafe { B::mul(lhs, rhs) }
-        })
+        self.checked_binary_op(other, B::mul)
     }
 
     /// Performs element-wise subtraction between two tensors.
@@ -129,10 +123,7 @@ where
         &self,
         other: &Self,
     ) -> Result<Self, IncompatibleTensorsError> {
-        self.checked_binary_op(other, |lhs, rhs| {
-            // SAFETY: The shapes are guaranteed to be the same.
-            unsafe { B::sub(lhs, rhs) }
-        })
+        self.checked_binary_op(other, B::sub)
     }
 
     /// Creates a tensor from a vector and a shape.
@@ -250,19 +241,17 @@ where
         Ok(num_elements)
     }
 
-    fn checked_binary_op<F>(
+    fn checked_binary_op(
         &self,
         rhs: &Self,
-        op: F,
-    ) -> Result<Self, IncompatibleTensorsError>
-    where
-        F: FnOnce(&B::Tensor, &B::Tensor) -> B::Tensor,
-    {
+        op: unsafe fn(&B::Tensor, &B::Tensor) -> B::Tensor,
+    ) -> Result<Self, IncompatibleTensorsError> {
         if self.shape() != rhs.shape() {
             return Err(IncompatibleTensorsError::ShapeMismatch);
         }
 
-        let inner = op(&self.inner, &rhs.inner);
+        // SAFETY: The shapes are guaranteed to be the same.
+        let inner = unsafe { op(&self.inner, &rhs.inner) };
 
         Ok(Self {
             inner,
