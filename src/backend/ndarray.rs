@@ -20,7 +20,7 @@ where
 
 impl<T> Backend for NdarrayBackend<T>
 where
-    T: Clone + Zero + One + ScalarOperand,
+    T: Clone + Copy + Zero + One + ScalarOperand + Sub<Output = T>,
     for<'borrow> &'borrow ArrayBase<OwnedRepr<T>, Dim<IxDynImpl>>: Sub<
             &'borrow ArrayBase<OwnedRepr<T>, Dim<IxDynImpl>>,
             Output = ArrayBase<OwnedRepr<T>, Dim<IxDynImpl>>,
@@ -83,6 +83,14 @@ where
     #[inline]
     unsafe fn sub(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
         lhs - rhs
+    }
+
+    #[inline]
+    fn sub_scalar(
+        tensor: &Self::Tensor,
+        scalar: Self::Primitive,
+    ) -> Self::Tensor {
+        tensor.mapv(|elem| elem - scalar)
     }
 
     #[inline]
@@ -216,5 +224,21 @@ mod tests {
         vec![1.0, 2.0, 3.0, 4.0],
         10.0,
         vec![10.0, 20.0, 30.0, 40.0]
+    );
+
+    test_scalar_op!(
+        ndarray_sub_scalar_produces_correct_values,
+        sub_scalar,
+        vec![10.0, 20.0, 30.0, 40.0],
+        5.0,
+        vec![5.0, 15.0, 25.0, 35.0]
+    );
+
+    test_scalar_op!(
+        ndarray_sub_scalar_works_for_integers,
+        sub_scalar,
+        vec![10, 20, 30, 40],
+        5,
+        vec![5, 15, 25, 35]
     );
 }

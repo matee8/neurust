@@ -412,6 +412,16 @@ mod tests {
             }
         }
 
+        fn sub_scalar(
+            tensor: &Self::Tensor,
+            scalar: Self::Primitive,
+        ) -> Self::Tensor {
+            Self::Tensor {
+                shape: tensor.shape.clone(),
+                value: tensor.value - scalar,
+            }
+        }
+
         unsafe fn zeros(shape: &[usize]) -> Self::Tensor {
             Self::Tensor {
                 shape: shape.to_owned(),
