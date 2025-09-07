@@ -62,6 +62,10 @@ pub enum IncompatibleTensorsError {
     /// The shapes of the input tensors are not compatible for the operation.
     #[error("incompatible tensor shapes for operation")]
     ShapeMismatch,
+    /// The tensor does not have the required number of dimensions for the
+    /// operation.
+    #[error("invalid tensor dimension for operation")]
+    InvalidDimension,
 }
 
 /// Generic, backend-agnostic n-dimensional tensor.
@@ -110,6 +114,45 @@ where
         other: &Self,
     ) -> Result<Self, IncompatibleTensorsError> {
         self.checked_binary_op(other, B::div)
+    }
+
+    /// Performs matrix multiplication of two 2D tensors.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`IncompatibleTensorsError`] if:
+    /// - Either `self` or `other` is not a 2-dimensional tensor.
+    /// - The inner dimensions are not compatible (i.e.,
+    ///   `self.shape()[1] != other.shape()[0]`).
+    #[expect(
+        clippy::indexing_slicing,
+        reason = "It is safe to index `shape` since `ndim` is > 2."
+    )]
+    #[inline]
+    pub fn checked_matmul(
+        &self,
+        other: &Self,
+    ) -> Result<Self, IncompatibleTensorsError> {
+        if self.ndim() != 2 {
+            return Err(IncompatibleTensorsError::InvalidDimension);
+        }
+
+        if other.ndim() != 2 {
+            return Err(IncompatibleTensorsError::InvalidDimension);
+        }
+
+        if self.shape()[1] != other.shape()[0] {
+            return Err(IncompatibleTensorsError::ShapeMismatch);
+        }
+
+        // SAFETY: We have verified that both tensors are 2D and their inner
+        // dimensions are compatible.
+        let inner = unsafe { B::matmul(&self.inner, &other.inner) };
+
+        Ok(Self {
+            inner,
+            _marker: PhantomData,
+        })
     }
 
     /// Performs element-wise multiplication between two tensors.
@@ -168,6 +211,24 @@ where
             inner,
             _marker: PhantomData,
         })
+    }
+
+    /// Performs matrix multiplication of two 2D tensors.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the tensor shapes are not compatible for matrix
+    /// multiplication. See [`Self::checked_matmul`] for details.
+    #[inline]
+    #[must_use]
+    #[expect(
+        clippy::expect_used,
+        reason = r#"The panic is documented, and end users could use the checked
+                    version instead, `checked_matmul`."#
+    )]
+    pub fn matmul(&self, other: &Self) -> Self {
+        self.checked_matmul(other)
+            .expect("incompatible tensor shapes for matrix multiplication")
     }
 
     /// Returns the number of dimensions of the tensor.
@@ -425,7 +486,11 @@ mod tests {
             lhs: &Self::Tensor,
             rhs: &Self::Tensor,
         ) -> Self::Tensor {
-            unsafe { Self::mul(lhs, rhs) }
+            let new_shape = vec![lhs.shape[0], rhs.shape[1]];
+            Self::Tensor {
+                shape: new_shape,
+                value: lhs.value * rhs.value,
+            }
         }
 
         unsafe fn mul(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
@@ -698,5 +763,49 @@ mod tests {
         test_scalar_op!(sub, Sub, sub, 10.0, 5.0, 5.0);
         test_scalar_op!(mul, Mul, mul, 3.0, 4.0, 12.0);
         test_scalar_op!(div, Div, div, 20.0, 4.0, 5.0);
+
+        #[test]
+        fn matmul_succeeds_on_valid_shapes() {
+            let a = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+            let b = TensorBase::<MockBackend>::zeros(&[3, 4]).unwrap();
+            let result = a.checked_matmul(&b);
+            assert!(result.is_ok());
+            let tensor = result.unwrap();
+            assert_eq!(tensor.shape(), &[2, 4]);
+        }
+
+        #[test]
+        fn matmul_fails_on_invalid_lhs_dimension() {
+            let a = TensorBase::<MockBackend>::zeros(&[2, 3, 1]).unwrap();
+            let b = TensorBase::<MockBackend>::zeros(&[3, 4]).unwrap();
+            let err = a.checked_matmul(&b).unwrap_err();
+            assert_eq!(err, IncompatibleTensorsError::InvalidDimension);
+        }
+
+        #[test]
+        fn matmul_fails_on_invalid_rhs_dimension() {
+            let a = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+            let b = TensorBase::<MockBackend>::zeros(&[3, 4, 1]).unwrap();
+            let err = a.checked_matmul(&b).unwrap_err();
+            assert_eq!(err, IncompatibleTensorsError::InvalidDimension);
+        }
+
+        #[test]
+        fn matmul_fails_on_shape_mismatch() {
+            let a = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+            let b = TensorBase::<MockBackend>::zeros(&[4, 5]).unwrap();
+            let err = a.checked_matmul(&b).unwrap_err();
+            assert_eq!(err, IncompatibleTensorsError::ShapeMismatch);
+        }
+
+        #[test]
+        #[should_panic(
+            expected = "incompatible tensor shapes for matrix multiplication"
+        )]
+        fn matmul_panics_on_mismatch() {
+            let a = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+            let b = TensorBase::<MockBackend>::zeros(&[4, 5]).unwrap();
+            let _result = a.matmul(&b);
+        }
     }
 }
