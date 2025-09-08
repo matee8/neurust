@@ -854,6 +854,32 @@ mod tests {
     mod creation {
         use crate::tensor::{ShapeError, TensorBase, tests::MockBackend};
 
+        macro_rules! test_creation_failure {
+            ($test_name:ident, $invalid_shape:expr, $expected_error:expr) => {
+                paste::paste! {
+                    #[test]
+                    fn [<creation_fails_on_ $test_name>]() {
+                        let invalid_shape = $invalid_shape;
+                        let err = $expected_error;
+
+                        assert_eq!(
+                            TensorBase::<MockBackend>::zeros(invalid_shape).unwrap_err(),
+                            err
+                        );
+                        assert_eq!(
+                            TensorBase::<MockBackend>::ones(invalid_shape).unwrap_err(),
+                            err
+                        );
+                        assert_eq!(
+                            TensorBase::<MockBackend>::from_vec(vec![], invalid_shape)
+                                .unwrap_err(),
+                            err
+                        );
+                    }
+                }
+            };
+        }
+
         #[test]
         fn zeros_creates_tensor_with_correct_shape_and_value() {
             let shape = &[2, 3];
@@ -895,46 +921,13 @@ mod tests {
             assert_eq!(tensor.ndim(), 3);
         }
 
-        #[test]
-        fn creation_fails_on_zero_dim_shape() {
-            let invalid_shape = &[2, 0];
-            let err = ShapeError::ZeroDim;
+        test_creation_failure!(zero_dim_shape, &[2, 0], ShapeError::ZeroDim);
 
-            assert_eq!(
-                TensorBase::<MockBackend>::zeros(invalid_shape).unwrap_err(),
-                err
-            );
-            assert_eq!(
-                TensorBase::<MockBackend>::ones(invalid_shape).unwrap_err(),
-                err
-            );
-            assert_eq!(
-                TensorBase::<MockBackend>::from_vec(vec![], invalid_shape)
-                    .unwrap_err(),
-                err
-            );
-        }
-
-        #[test]
-        fn creation_fails_on_overflowing_shape() {
-            let isize_max = usize::try_from(isize::MAX).unwrap();
-            let invalid_shape = &[isize_max, 2];
-            let err = ShapeError::ShapeOverflow;
-
-            assert_eq!(
-                TensorBase::<MockBackend>::zeros(invalid_shape).unwrap_err(),
-                err
-            );
-            assert_eq!(
-                TensorBase::<MockBackend>::ones(invalid_shape).unwrap_err(),
-                err
-            );
-            assert_eq!(
-                TensorBase::<MockBackend>::from_vec(vec![], invalid_shape)
-                    .unwrap_err(),
-                err
-            );
-        }
+        test_creation_failure!(
+            overflowing_shape,
+            &[usize::try_from(isize::MAX).unwrap(), 2],
+            ShapeError::ShapeOverflow
+        );
     }
 
     mod validation {
