@@ -136,6 +136,25 @@ pub trait Backend {
         scalar: Self::Primitive,
     ) -> Self::Tensor;
 
+    /// Sums the elements of a tensor along a specific axis, removing the
+    /// dimension.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the `axis` is a valid dimension index for
+    /// the tensor (i.e., `axis < tensor.ndim()`).
+    unsafe fn sum(tensor: &Self::Tensor, axis: usize) -> Self::Tensor;
+
+    /// Sums the elements of a tensor along a specified axis, keeping the
+    /// dimension with size 1.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the `axis` is a valid dimension index for
+    /// the tensor (i.e., `axis < tensor.ndim()`).
+    unsafe fn sum_keep_dims(tensor: &Self::Tensor, axis: usize)
+    -> Self::Tensor;
+
     /// Transposes a 2D tensor, swapping its axes.
     ///
     /// # Safety

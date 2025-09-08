@@ -634,6 +634,27 @@ mod tests {
             }
         }
 
+        unsafe fn sum(tensor: &Self::Tensor, axis: usize) -> Self::Tensor {
+            let mut new_shape = tensor.shape.clone();
+            let _ = new_shape.remove(axis);
+            Self::Tensor {
+                shape: new_shape,
+                value: tensor.value * tensor.shape[axis] as f32,
+            }
+        }
+
+        unsafe fn sum_keep_dims(
+            tensor: &Self::Tensor,
+            axis: usize,
+        ) -> Self::Tensor {
+            let mut new_shape = tensor.shape.clone();
+            new_shape[axis] = 1;
+            Self::Tensor {
+                shape: new_shape,
+                value: tensor.value * tensor.shape[axis] as f32,
+            }
+        }
+
         unsafe fn transpose(tensor: &Self::Tensor) -> Self::Tensor {
             let mut new_shape = tensor.shape.clone();
             new_shape.reverse();

@@ -6,7 +6,7 @@ use core::{
 };
 
 use ndarray::{
-    ArrayBase, ArrayD, Dim, IxDyn, IxDynImpl, OwnedRepr, ScalarOperand,
+    ArrayBase, ArrayD, Axis, Dim, IxDyn, IxDynImpl, OwnedRepr, ScalarOperand,
 };
 use num_traits::{One, Zero};
 
@@ -147,6 +147,19 @@ where
     }
 
     #[inline]
+    unsafe fn sum(tensor: &Self::Tensor, axis: usize) -> Self::Tensor {
+        tensor.sum_axis(Axis(axis))
+    }
+
+    #[inline]
+    unsafe fn sum_keep_dims(
+        tensor: &Self::Tensor,
+        axis: usize,
+    ) -> Self::Tensor {
+        tensor.sum_axis(Axis(axis)).insert_axis(Axis(axis))
+    }
+
+    #[inline]
     unsafe fn transpose(tensor: &Self::Tensor) -> Self::Tensor {
         // SAFETY: The caller guarantees the tensor is 2D.
         let view = unsafe {
@@ -282,6 +295,31 @@ mod tests {
             transposed.into_raw_vec_and_offset().0,
             vec![1.0, 4.0, 2.0, 5.0, 3.0, 6.0]
         );
+    }
+
+    #[test]
+    fn ndarray_sum_produces_correct_result() {
+        let tensor = unsafe {
+            NdarrayBackend::from_vec(vec![1., 2., 3., 4., 5., 6.], &[2, 3])
+        };
+        let sum_0 = unsafe { NdarrayBackend::sum(&tensor, 0) };
+        let sum_1 = unsafe { NdarrayBackend::sum(&tensor, 1) };
+
+        assert_eq!(sum_0.shape(), &[3]);
+        assert_eq!(sum_0.into_raw_vec_and_offset().0, vec![5.0, 7.0, 9.0]);
+        assert_eq!(sum_1.shape(), &[2]);
+        assert_eq!(sum_1.into_raw_vec_and_offset().0, vec![6.0, 15.0]);
+    }
+
+    #[test]
+    fn ndarray_sum_keep_dims_produces_correct_result() {
+        let tensor = unsafe {
+            NdarrayBackend::from_vec(vec![1., 2., 3., 4., 5., 6.], &[2, 3])
+        };
+        let sum_1 = unsafe { NdarrayBackend::sum_keep_dims(&tensor, 1) };
+
+        assert_eq!(sum_1.shape(), &[2, 1]);
+        assert_eq!(sum_1.into_raw_vec_and_offset().0, vec![6.0, 15.0]);
     }
 
     test_binary_op!(
