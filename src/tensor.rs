@@ -66,6 +66,9 @@ pub enum IncompatibleTensorsError {
     /// operation.
     #[error("invalid tensor dimension for operation")]
     InvalidDimension,
+    /// The provided axis is out of bounds for the tensor's shape.
+    #[error("invalid axis for tensor with less dimensions")]
+    InvalidAxis,
 }
 
 /// Generic, backend-agnostic n-dimensional tensor.
@@ -211,6 +214,56 @@ where
         self.checked_binary_op(other, B::sub)
     }
 
+    /// Sums the elements of the tensor along the specified axis, removing that
+    /// dimension.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`IncompatibleTensorsError::InvalidAxis`] if the axis is out
+    /// of bounds.
+    #[inline]
+    pub fn checked_sum(
+        &self,
+        axis: usize,
+    ) -> Result<Self, IncompatibleTensorsError> {
+        if axis >= self.ndim() {
+            return Err(IncompatibleTensorsError::InvalidAxis);
+        }
+
+        // SAFETY: We have verified that the axis is valid.
+        let inner = unsafe { B::sum(&self.inner, axis) };
+
+        Ok(Self {
+            inner,
+            _marker: PhantomData,
+        })
+    }
+
+    /// Sums the elements of the tensor along the specified axis, keeping the
+    /// dimension with size 1.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`IncompatibleTensorsError::InvalidAxis`] if the axis is out
+    /// of bounds.
+    #[inline]
+    pub fn checked_sum_keep_dims(
+        &self,
+        axis: usize,
+    ) -> Result<Self, IncompatibleTensorsError> {
+        if axis >= self.ndim() {
+            return Err(IncompatibleTensorsError::InvalidAxis);
+        }
+
+        // SAFETY: We have verified that the axis is valid.
+        let inner = unsafe { B::sum_keep_dims(&self.inner, axis) };
+
+        Ok(Self {
+            inner,
+            _marker: PhantomData,
+        })
+    }
+
     /// Transpose a 2D tensor, swapping its axes.
     ///
     /// # Errors
@@ -331,6 +384,42 @@ where
     #[must_use]
     pub fn shape(&self) -> &[usize] {
         B::shape(&self.inner)
+    }
+
+    /// Sums the elements of the tensor along the specified axis, removing that
+    /// dimension
+    ///
+    /// # Panics
+    ///
+    /// Panics if the axis is out of bounds for the tensor.
+    #[inline]
+    #[must_use]
+    #[expect(
+        clippy::expect_used,
+        reason = r#"The panic is documented, and end users could use the checked
+                    version instead, `checked_sum`."#
+    )]
+    pub fn sum(&self, axis: usize) -> Self {
+        self.checked_sum(axis)
+            .expect("axis is out of bounds for sum operation")
+    }
+
+    /// Sums the elements of the tensor along a the specified axis, keeping the
+    /// dimension with size 1.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the axis is out of bounds for the tensor.
+    #[inline]
+    #[must_use]
+    #[expect(
+        clippy::expect_used,
+        reason = r#"The panic is documented, and end users could use the checked
+                    version instead, `checked_sum_keep_dims`."#
+    )]
+    pub fn sum_keep_dims(&self, axis: usize) -> Self {
+        self.checked_sum_keep_dims(axis)
+            .expect("axis is out of bounds for sum operation")
     }
 
     /// Transpose a 2D tensor, swapping its axes.
@@ -983,6 +1072,54 @@ mod tests {
         fn transpose_panics_on_non_2d_tensor() {
             let tensor = TensorBase::<MockBackend>::zeros(&[1, 2, 3]).unwrap();
             let _result = tensor.transpose();
+        }
+
+        #[test]
+        fn sum_succeeds_on_valid_axis() {
+            let tensor =
+                TensorBase::<MockBackend>::from_vec(vec![1.0; 6], &[2, 3])
+                    .unwrap();
+            let result = tensor.checked_sum(1).unwrap();
+            assert_eq!(result.shape(), &[2]);
+            assert_eq!(result.inner.value, 3.0);
+        }
+
+        #[test]
+        fn sum_keep_dims_succeeds_on_valid_axis() {
+            let tensor =
+                TensorBase::<MockBackend>::from_vec(vec![1.0; 6], &[2, 3])
+                    .unwrap();
+            let result = tensor.checked_sum_keep_dims(1).unwrap();
+            assert_eq!(result.shape(), &[2, 1]);
+            assert_eq!(result.inner.value, 3.0);
+        }
+
+        #[test]
+        fn sum_fails_on_invalid_axis() {
+            let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+            let err = tensor.checked_sum(2).unwrap_err();
+            assert_eq!(err, IncompatibleTensorsError::InvalidAxis);
+        }
+
+        #[test]
+        #[should_panic(expected = "axis is out of bounds for sum operation")]
+        fn sum_panics_on_invalid_axis() {
+            let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+            let _result = tensor.sum(2);
+        }
+
+        #[test]
+        fn sum_keep_dims_fails_on_invalid_axis() {
+            let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+            let err = tensor.checked_sum_keep_dims(2).unwrap_err();
+            assert_eq!(err, IncompatibleTensorsError::InvalidAxis);
+        }
+
+        #[test]
+        #[should_panic(expected = "axis is out of bounds for sum operation")]
+        fn sum_keep_dims_panics_on_invalid_axis() {
+            let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+            let _result = tensor.sum_keep_dims(2);
         }
     }
 }
