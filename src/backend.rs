@@ -9,7 +9,7 @@
 
 use core::ops::{Add, Div, Mul, Sub};
 
-use num_traits::{One, Zero};
+use num_traits::{Bounded, One, Zero};
 
 pub mod ndarray;
 
@@ -36,7 +36,8 @@ pub trait Backend {
         + Add<Output = Self::Primitive>
         + Sub<Output = Self::Primitive>
         + Mul<Output = Self::Primitive>
-        + Div<Output = Self::Primitive>;
+        + Div<Output = Self::Primitive>
+        + Extremum;
     /// The concrete tensor representation provided by the backend.
     type Tensor: Clone;
 
@@ -203,4 +204,18 @@ cfg_if::cfg_if! {
             "A backend feature must be enabled. Available: `backend-ndarray`"
         );
     }
+}
+
+/// A helper trait to abstract reduction operations (min/max) in a way that is
+/// generic over integers and floats, and correctly handles `NaN`.
+pub trait Extremum: Bounded + Copy {
+    /// Returns the minimum of two values. For floats, this must propagate
+    /// `NaN` as per the IEEE 754 standard to avoid panics.
+    #[must_use]
+    fn min(self, other: Self) -> Self;
+
+    /// Returns the maximum of two values. For floats, this must propagate
+    /// `NaN` as per the IEEE 754 standard to avoid panics.
+    #[must_use]
+    fn max(self, other: Self) -> Self;
 }

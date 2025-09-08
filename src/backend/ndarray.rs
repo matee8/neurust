@@ -10,7 +10,7 @@ use ndarray::{
 };
 use num_traits::{FromPrimitive, One, Zero};
 
-use crate::backend::Backend;
+use crate::backend::{Backend, Extremum};
 
 macro_rules! impl_keep_dims_variant {
     ($keep_dims_name:ident, $base_name:ident) => {
@@ -34,6 +34,65 @@ macro_rules! impl_binary_op {
     };
 }
 
+macro_rules! impl_reduce_op_for_int {
+    ($($t:ty),*) => {
+        $(
+            impl Extremum for $t {
+                #[inline]
+                fn min(self, other: Self) -> Self {
+                    core::cmp::min(self, other)
+                }
+                #[inline]
+                fn max(self, other: Self) -> Self {
+                    core::cmp::max(self, other)
+                }
+            }
+        )*
+    };
+}
+
+impl_reduce_op_for_int!(i8, i16, i32, i64, i128, u8, u16, u32, u64, u128);
+
+impl Extremum for f32 {
+    #[inline]
+    fn min(self, other: Self) -> Self {
+        if self.is_nan() || other.is_nan() {
+            Self::NAN
+        } else {
+            self.min(other)
+        }
+    }
+
+    #[inline]
+    fn max(self, other: Self) -> Self {
+        if self.is_nan() || other.is_nan() {
+            Self::NAN
+        } else {
+            self.max(other)
+        }
+    }
+}
+
+impl Extremum for f64 {
+    #[inline]
+    fn min(self, other: Self) -> Self {
+        if self.is_nan() || other.is_nan() {
+            Self::NAN
+        } else {
+            self.min(other)
+        }
+    }
+
+    #[inline]
+    fn max(self, other: Self) -> Self {
+        if self.is_nan() || other.is_nan() {
+            Self::NAN
+        } else {
+            self.max(other)
+        }
+    }
+}
+
 /// Marker type for the [`ndarray`] backend.
 #[derive(Debug)]
 pub struct NdarrayBackend<T>
@@ -54,7 +113,8 @@ where
         + Sub<Output = T>
         + Mul<Output = T>
         + Div<Output = T>
-        + FromPrimitive,
+        + FromPrimitive
+        + Extremum,
     for<'borrow> &'borrow ArrayBase<OwnedRepr<T>, Dim<IxDynImpl>>: Sub<
             &'borrow ArrayBase<OwnedRepr<T>, Dim<IxDynImpl>>,
             Output = ArrayBase<OwnedRepr<T>, Dim<IxDynImpl>>,
@@ -193,7 +253,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::backend::{Backend, ndarray::NdarrayBackend};
+    use crate::backend::{Backend, Extremum, ndarray::NdarrayBackend};
 
     macro_rules! test_binary_op {
         ($name:ident, $op:ident, $lhs:expr, $rhs:expr, $expected:expr) => {
@@ -270,6 +330,32 @@ mod tests {
                 }
             }
         };
+    }
+
+    #[test]
+    fn extremum_trait_impl_for_integers_is_correct() {
+        assert_eq!(Extremum::max(5i32, 10i32), 10i32);
+        assert_eq!(Extremum::min(5i32, 10i32), 5i32);
+    }
+
+    #[test]
+    fn extremum_trait_impl_for_f32_handles_nan() {
+        let nan = f32::NAN;
+        assert_eq!(Extremum::max(5.0f32, 10.0f32), 10.0f32);
+        assert_eq!(Extremum::min(5.0f32, 10.0f32), 5.0f32);
+        assert!(Extremum::max(5.0f32, nan).is_nan());
+        assert!(Extremum::max(nan, 5.0f32).is_nan());
+        assert!(Extremum::min(5.0f32, nan).is_nan());
+        assert!(Extremum::min(nan, 5.0f32).is_nan());
+    }
+
+    #[test]
+    fn extremum_trait_impl_for_f64_handles_nan() {
+        let nan = f64::NAN;
+        assert_eq!(Extremum::max(5.0f64, 10.0f64), 10.0f64);
+        assert_eq!(Extremum::min(5.0f64, 10.0f64), 5.0f64);
+        assert!(Extremum::max(5.0f64, nan).is_nan());
+        assert!(Extremum::min(nan, 5.0f64).is_nan());
     }
 
     #[test]
