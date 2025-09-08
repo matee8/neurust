@@ -657,6 +657,41 @@ impl<B: Backend> TensorBase<B> {
         /// Panics if the axis is out of bounds for the tensor.
         mean_keep_dims
     );
+
+    impl_axis_op!(
+        /// Finds the maximum elements of the tensor along the specified axis,
+        /// removing that dimension.
+        ///
+        /// # Errors
+        ///
+        /// Returns an [`IncompatibleTensorsError::InvalidAxis`] if the axis is
+        /// out of bounds.
+        checked_max,
+        max,
+        /// Finds the maximum elements of the tensor along the specified axis,
+        /// removing that dimension.
+        ///
+        /// # Panics
+        ///
+        /// Panics if the axis is out of bounds for the tensor.
+        max,
+        /// Finds the maximum elements of the tensor along the specified axis,
+        /// keeping the dimension with size 1.
+        ///
+        /// # Errors
+        ///
+        /// Returns an [`IncompatibleTensorsError::InvalidAxis`] if the axis is
+        /// out of bounds.
+        checked_max_keep_dims,
+        max_keep_dims,
+        /// Finds the maximum elements of the tensor along the specified axis,
+        /// keeping the dimension with size 1.
+        ///
+        /// # Panics
+        ///
+        /// Panics if the axis is out of bounds for the tensor.
+        max_keep_dims
+    );
 }
 
 #[cfg(test)]
@@ -1148,6 +1183,7 @@ mod tests {
             mean_keep_dims,
             checked_mean_keep_dims
         );
+        test_axis_op!(max, checked_max, max_keep_dims, checked_max_keep_dims);
 
         #[test]
         fn matmul_succeeds_on_valid_shapes() {
