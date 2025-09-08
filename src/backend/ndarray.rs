@@ -131,6 +131,8 @@ where
 
     impl_keep_dims_variant!(mean_keep_dims, mean);
 
+    impl_keep_dims_variant!(max_keep_dims, max);
+
     impl_binary_op!(add, +);
 
     impl_binary_op!(sub, -);
@@ -181,6 +183,14 @@ where
                 .unwrap_unchecked()
         };
         lhs_view.dot(&rhs_view).into_dyn()
+    }
+
+    #[inline]
+    unsafe fn max(tensor: &Self::Tensor, axis: usize) -> Self::Tensor {
+        tensor.map_axis(Axis(axis), |view| {
+            view.iter()
+                .fold(T::min_value(), |acc, &x| Extremum::max(acc, x))
+        })
     }
 
     #[inline]
@@ -536,4 +546,6 @@ mod tests {
         vec![2.5, 3.5, 4.5],
         vec![2.0, 5.0]
     );
+
+    test_axis_op!(max, max, max_keep_dims, vec![4.0, 5.0, 6.0], vec![3.0, 6.0]);
 }

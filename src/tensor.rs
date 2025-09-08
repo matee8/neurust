@@ -737,6 +737,27 @@ mod tests {
             }
         }
 
+        unsafe fn max(tensor: &Self::Tensor, axis: usize) -> Self::Tensor {
+            let mut new_shape = tensor.shape.clone();
+            let _ = new_shape.remove(axis);
+            Self::Tensor {
+                shape: new_shape,
+                value: tensor.value,
+            }
+        }
+
+        unsafe fn max_keep_dims(
+            tensor: &Self::Tensor,
+            axis: usize,
+        ) -> Self::Tensor {
+            let mut new_shape = tensor.shape.clone();
+            new_shape[axis] = 1;
+            Self::Tensor {
+                shape: new_shape,
+                value: tensor.value,
+            }
+        }
+
         unsafe fn mean(tensor: &Self::Tensor, axis: usize) -> Self::Tensor {
             let mut new_shape = tensor.shape.clone();
             let _ = new_shape.remove(axis);
