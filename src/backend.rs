@@ -13,11 +13,6 @@ use num_traits::{One, Zero};
 
 pub mod ndarray;
 
-pub trait ArithmeticPrimitive:
-    Clone + Copy + Zero + One + Add<Output = Self>
-{
-}
-
 /// A trait that defines the contract for tensor operations that every
 /// backend must fulfill.
 ///
