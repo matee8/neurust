@@ -12,6 +12,19 @@ use num_traits::{FromPrimitive, One, Zero};
 
 use crate::backend::Backend;
 
+macro_rules! impl_keep_dims_variant {
+    ($keep_dims_name:ident, $base_name:ident) => {
+        #[inline]
+        unsafe fn $keep_dims_name(
+            tensor: &Self::Tensor,
+            axis: usize,
+        ) -> Self::Tensor {
+            // SAFETY: The caller guarantees non-zero dimensions.
+            unsafe { Self::$base_name(tensor, axis).insert_axis(Axis(axis)) }
+        }
+    };
+}
+
 /// Marker type for the [`ndarray`] backend.
 #[derive(Debug)]
 pub struct NdarrayBackend<T>
@@ -44,6 +57,10 @@ where
 {
     type Primitive = T;
     type Tensor = ArrayD<T>;
+
+    impl_keep_dims_variant!(sum_keep_dims, sum);
+
+    impl_keep_dims_variant!(mean_keep_dims, mean);
 
     #[inline]
     unsafe fn add(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
@@ -106,20 +123,6 @@ where
     }
 
     #[inline]
-    unsafe fn mean_keep_dims(
-        tensor: &Self::Tensor,
-        axis: usize,
-    ) -> Self::Tensor {
-        // SAFETY: The caller guarantees non-zero dimensions.
-        unsafe {
-            tensor
-                .mean_axis(Axis(axis))
-                .unwrap_unchecked()
-                .insert_axis(Axis(axis))
-        }
-    }
-
-    #[inline]
     unsafe fn mul(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
         lhs * rhs
     }
@@ -170,14 +173,6 @@ where
     #[inline]
     unsafe fn sum(tensor: &Self::Tensor, axis: usize) -> Self::Tensor {
         tensor.sum_axis(Axis(axis))
-    }
-
-    #[inline]
-    unsafe fn sum_keep_dims(
-        tensor: &Self::Tensor,
-        axis: usize,
-    ) -> Self::Tensor {
-        tensor.sum_axis(Axis(axis)).insert_axis(Axis(axis))
     }
 
     #[inline]
