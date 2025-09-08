@@ -25,6 +25,15 @@ macro_rules! impl_keep_dims_variant {
     };
 }
 
+macro_rules! impl_binary_op {
+    ($name:ident, $op:tt) => {
+        #[inline]
+        unsafe fn $name(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
+            lhs $op rhs
+        }
+    };
+}
+
 /// Marker type for the [`ndarray`] backend.
 #[derive(Debug)]
 pub struct NdarrayBackend<T>
@@ -62,10 +71,13 @@ where
 
     impl_keep_dims_variant!(mean_keep_dims, mean);
 
-    #[inline]
-    unsafe fn add(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
-        lhs + rhs
-    }
+    impl_binary_op!(add, +);
+
+    impl_binary_op!(sub, -);
+
+    impl_binary_op!(mul, *);
+
+    impl_binary_op!(div, /);
 
     #[inline]
     fn add_scalar(
@@ -73,11 +85,6 @@ where
         scalar: Self::Primitive,
     ) -> Self::Tensor {
         tensor + scalar
-    }
-
-    #[inline]
-    unsafe fn div(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
-        lhs / rhs
     }
 
     #[inline]
@@ -123,11 +130,6 @@ where
     }
 
     #[inline]
-    unsafe fn mul(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
-        lhs * rhs
-    }
-
-    #[inline]
     fn mul_scalar(
         tensor: &Self::Tensor,
         scalar: Self::Primitive,
@@ -155,11 +157,6 @@ where
     #[inline]
     fn shape(tensor: &Self::Tensor) -> &[usize] {
         tensor.shape()
-    }
-
-    #[inline]
-    unsafe fn sub(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
-        lhs - rhs
     }
 
     #[inline]
