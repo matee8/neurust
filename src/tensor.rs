@@ -158,6 +158,56 @@ where
         })
     }
 
+    /// Calculates the mean of the tensor's elements along the specified axis,
+    /// removing that dimension.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`IncompatibleTensorsError::InvalidAxis`] if the axis is
+    /// out of bounds.
+    #[inline]
+    pub fn checked_mean(
+        &self,
+        axis: usize,
+    ) -> Result<Self, IncompatibleTensorsError> {
+        if axis >= self.ndim() {
+            return Err(IncompatibleTensorsError::InvalidAxis);
+        }
+
+        // SAFETY: We have verified that the axis is valid.
+        let inner = unsafe { B::mean(&self.inner, axis) };
+
+        Ok(Self {
+            inner,
+            _marker: PhantomData,
+        })
+    }
+
+    /// Calculates the mean of the tensor's elements along the specified axis,
+    /// keeping the dimension with size 1.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`IncompatibleTensorsError::InvalidAxis`] if the axis if out
+    /// of bounds.
+    #[inline]
+    pub fn checked_mean_keep_dims(
+        &self,
+        axis: usize,
+    ) -> Result<Self, IncompatibleTensorsError> {
+        if axis >= self.ndim() {
+            return Err(IncompatibleTensorsError::InvalidAxis);
+        }
+
+        // SAFETY: We have verified that the axis is valid.
+        let inner = unsafe { B::mean_keep_dims(&self.inner, axis) };
+
+        Ok(Self {
+            inner,
+            _marker: PhantomData,
+        })
+    }
+
     /// Performs element-wise multiplication between two tensors.
     ///
     /// # Errors
@@ -331,6 +381,42 @@ where
     pub fn matmul(&self, other: &Self) -> Self {
         self.checked_matmul(other)
             .expect("incompatible tensor shapes for matrix multiplication")
+    }
+
+    /// Calculates the mean of the tensor's elements along the specified axis,
+    /// removing that dimension.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the axis is out of bounds for the tensor.
+    #[inline]
+    #[must_use]
+    #[expect(
+        clippy::expect_used,
+        reason = r#"The panic is documented, and end users could use the checked
+                    version instead, `checked_mean`."#
+    )]
+    pub fn mean(&self, axis: usize) -> Self {
+        self.checked_mean(axis)
+            .expect("axis is out of bounds for mean operation")
+    }
+
+    /// Calculates the mean of the tensor's elements along the specified axis,
+    /// keeping the dimension with size 1.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the axis is out of bounds for the tensor.
+    #[inline]
+    #[must_use]
+    #[expect(
+        clippy::expect_used,
+        reason = r#"The panic is documented, and end users could use the checked
+                    version instead, `checked_mean_keep_dims`."#
+    )]
+    pub fn mean_keep_dims(&self, axis: usize) -> Self {
+        self.checked_mean_keep_dims(axis)
+            .expect("axis is out of bounds for mean operation")
     }
 
     /// Returns the number of dimensions of the tensor.
@@ -1141,6 +1227,54 @@ mod tests {
         fn sum_keep_dims_panics_on_invalid_axis() {
             let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
             let _result = tensor.sum_keep_dims(2);
+        }
+
+        #[test]
+        fn mean_succeeds_on_valid_axis() {
+            let tensor =
+                TensorBase::<MockBackend>::from_vec(vec![3.0; 6], &[2, 3])
+                    .unwrap();
+            let result = tensor.checked_mean(1).unwrap();
+            assert_eq!(result.shape(), &[2]);
+            assert_eq!(result.inner.value, 3.0);
+        }
+
+        #[test]
+        fn mean_keep_dims_succeeds_on_valid_axis() {
+            let tensor =
+                TensorBase::<MockBackend>::from_vec(vec![3.0; 6], &[2, 3])
+                    .unwrap();
+            let result = tensor.checked_mean_keep_dims(1).unwrap();
+            assert_eq!(result.shape(), &[2, 1]);
+            assert_eq!(result.inner.value, 3.0);
+        }
+
+        #[test]
+        fn mean_fails_on_invalid_axis() {
+            let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+            let err = tensor.checked_mean(2).unwrap_err();
+            assert_eq!(err, IncompatibleTensorsError::InvalidAxis);
+        }
+
+        #[test]
+        #[should_panic(expected = "axis is out of bounds for mean operation")]
+        fn mean_panics_on_invalid_axis() {
+            let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+            let _result = tensor.mean(2);
+        }
+
+        #[test]
+        fn mean_keep_dims_fails_on_invalid_axis() {
+            let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+            let err = tensor.checked_mean_keep_dims(2).unwrap_err();
+            assert_eq!(err, IncompatibleTensorsError::InvalidAxis);
+        }
+
+        #[test]
+        #[should_panic(expected = "axis is out of bounds for mean operation")]
+        fn mean_keep_dims_panics_on_invalid_axis() {
+            let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+            let _result = tensor.mean_keep_dims(2);
         }
     }
 }
