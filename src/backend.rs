@@ -89,6 +89,27 @@ pub trait Backend {
     /// (`lhs.shape()[1] == rhs.shape()[0]`).
     unsafe fn matmul(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor;
 
+    /// Calculates the mean of a tensors's elements along a specified axis,
+    /// removing the dimension.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the `axis` is a valid dimension index for
+    /// the tensor (i.e., `axis < tensor.ndim()`).
+    unsafe fn mean(tensor: &Self::Tensor, axis: usize) -> Self::Tensor;
+
+    /// Calculates the mean of a tensor's elements along a specified axis,
+    /// keeping the dimension with size 1.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the `axis` is a valid dimension index for
+    /// the tensor (i.e., `axis < tensor.ndim()`).
+    unsafe fn mean_keep_dims(
+        tensor: &Self::Tensor,
+        axis: usize,
+    ) -> Self::Tensor;
+
     /// Multiplies two tensors element-wise.
     ///
     /// # Safety

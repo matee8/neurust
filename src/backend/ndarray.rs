@@ -8,7 +8,7 @@ use core::{
 use ndarray::{
     ArrayBase, ArrayD, Axis, Dim, IxDyn, IxDynImpl, OwnedRepr, ScalarOperand,
 };
-use num_traits::{One, Zero};
+use num_traits::{FromPrimitive, One, Zero};
 
 use crate::backend::Backend;
 
@@ -31,7 +31,8 @@ where
         + Add<Output = T>
         + Sub<Output = T>
         + Mul<Output = T>
-        + Div<Output = T>,
+        + Div<Output = T>
+        + FromPrimitive,
     for<'borrow> &'borrow ArrayBase<OwnedRepr<T>, Dim<IxDynImpl>>: Sub<
             &'borrow ArrayBase<OwnedRepr<T>, Dim<IxDynImpl>>,
             Output = ArrayBase<OwnedRepr<T>, Dim<IxDynImpl>>,
@@ -96,6 +97,26 @@ where
                 .unwrap_unchecked()
         };
         lhs_view.dot(&rhs_view).into_dyn()
+    }
+
+    #[inline]
+    unsafe fn mean(tensor: &Self::Tensor, axis: usize) -> Self::Tensor {
+        // SAFETY: The caller guarantees non-zero dimensions.
+        unsafe { tensor.mean_axis(Axis(axis)).unwrap_unchecked() }
+    }
+
+    #[inline]
+    unsafe fn mean_keep_dims(
+        tensor: &Self::Tensor,
+        axis: usize,
+    ) -> Self::Tensor {
+        // SAFETY: The caller guarantees non-zero dimensions.
+        unsafe {
+            tensor
+                .mean_axis(Axis(axis))
+                .unwrap_unchecked()
+                .insert_axis(Axis(axis))
+        }
     }
 
     #[inline]
@@ -320,6 +341,31 @@ mod tests {
 
         assert_eq!(sum_1.shape(), &[2, 1]);
         assert_eq!(sum_1.into_raw_vec_and_offset().0, vec![6.0, 15.0]);
+    }
+
+    #[test]
+    fn ndarray_mean_produces_correct_result() {
+        let tensor = unsafe {
+            NdarrayBackend::from_vec(vec![1., 2., 3., 4., 5., 6.], &[2, 3])
+        };
+        let mean_0 = unsafe { NdarrayBackend::mean(&tensor, 0) };
+        let mean_1 = unsafe { NdarrayBackend::mean(&tensor, 1) };
+
+        assert_eq!(mean_0.shape(), &[3]);
+        assert_eq!(mean_0.into_raw_vec_and_offset().0, vec![2.5, 3.5, 4.5]);
+        assert_eq!(mean_1.shape(), &[2]);
+        assert_eq!(mean_1.into_raw_vec_and_offset().0, vec![2.0, 5.0]);
+    }
+
+    #[test]
+    fn ndarray_mean_keep_dims_produces_correct_result() {
+        let tensor = unsafe {
+            NdarrayBackend::from_vec(vec![1., 2., 3., 4., 5., 6.], &[2, 3])
+        };
+        let mean_1 = unsafe { NdarrayBackend::mean_keep_dims(&tensor, 1) };
+
+        assert_eq!(mean_1.shape(), &[2, 1]);
+        assert_eq!(mean_1.into_raw_vec_and_offset().0, vec![2.0, 5.0]);
     }
 
     test_binary_op!(
