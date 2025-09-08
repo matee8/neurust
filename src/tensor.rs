@@ -1060,6 +1060,63 @@ mod tests {
             };
         }
 
+        macro_rules! test_axis_op {
+            (
+                $name:ident,
+                $checked_name:ident,
+                $keep_dims_name:ident,
+                $checked_keep_dims_name:ident
+            ) => {
+                paste::paste! {
+                    #[test]
+                    fn [<$name _succeeds_on_valid_axis>]() {
+                        let tensor =
+                            TensorBase::<MockBackend>::from_vec(vec![1.0; 6], &[2, 3])
+                                .unwrap();
+                        let result = tensor.$checked_name(1).unwrap();
+                        assert_eq!(result.shape(), &[2]);
+                    }
+
+                    #[test]
+                    fn [<$keep_dims_name _succeeds_on_valid_axis>]() {
+                        let tensor =
+                            TensorBase::<MockBackend>::from_vec(vec![1.0; 6], &[2, 3])
+                                .unwrap();
+                        let result = tensor.$checked_keep_dims_name(1).unwrap();
+                        assert_eq!(result.shape(), &[2, 1]);
+                    }
+
+                    #[test]
+                    fn [<$name _fails_on_invalid_axis>]() {
+                        let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+                        let err = tensor.$checked_name(2).unwrap_err();
+                        assert_eq!(err, IncompatibleTensorsError::InvalidAxis);
+                    }
+
+                    #[test]
+                    fn [<$keep_dims_name _fails_on_invalid_axis>]() {
+                        let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+                        let err = tensor.$checked_keep_dims_name(2).unwrap_err();
+                        assert_eq!(err, IncompatibleTensorsError::InvalidAxis);
+                    }
+
+                    #[test]
+                    #[should_panic(expected = "axis is out of bounds for operation")]
+                    fn [<$name _panics_on_invalid_axis>]() {
+                        let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+                        let _result = tensor.$name(2);
+                    }
+
+                    #[test]
+                    #[should_panic(expected = "axis is out of bounds for operation")]
+                    fn [<$keep_dims_name _panics_on_invalid_axis>]() {
+                        let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
+                        let _result = tensor.$keep_dims_name(2);
+                    }
+                }
+            };
+        }
+
         test_binary_op!(test_add, checked_add, Add, add, 2.0, 3.0, 5.0);
         test_binary_op!(test_sub, checked_sub, Sub, sub, 5.0, 3.0, 2.0);
         test_binary_op!(test_mul, checked_mul, Mul, mul, 2.0, 3.0, 6.0);
@@ -1069,6 +1126,14 @@ mod tests {
         test_scalar_op!(sub, Sub, sub, 10.0, 5.0, 5.0);
         test_scalar_op!(mul, Mul, mul, 3.0, 4.0, 12.0);
         test_scalar_op!(div, Div, div, 20.0, 4.0, 5.0);
+
+        test_axis_op!(sum, checked_sum, sum_keep_dims, checked_sum_keep_dims);
+        test_axis_op!(
+            mean,
+            checked_mean,
+            mean_keep_dims,
+            checked_mean_keep_dims
+        );
 
         #[test]
         fn matmul_succeeds_on_valid_shapes() {
@@ -1162,102 +1227,6 @@ mod tests {
         fn transpose_panics_on_non_2d_tensor() {
             let tensor = TensorBase::<MockBackend>::zeros(&[1, 2, 3]).unwrap();
             let _result = tensor.transpose();
-        }
-
-        #[test]
-        fn sum_succeeds_on_valid_axis() {
-            let tensor =
-                TensorBase::<MockBackend>::from_vec(vec![1.0; 6], &[2, 3])
-                    .unwrap();
-            let result = tensor.checked_sum(1).unwrap();
-            assert_eq!(result.shape(), &[2]);
-            assert_eq!(result.inner.value, 3.0);
-        }
-
-        #[test]
-        fn sum_keep_dims_succeeds_on_valid_axis() {
-            let tensor =
-                TensorBase::<MockBackend>::from_vec(vec![1.0; 6], &[2, 3])
-                    .unwrap();
-            let result = tensor.checked_sum_keep_dims(1).unwrap();
-            assert_eq!(result.shape(), &[2, 1]);
-            assert_eq!(result.inner.value, 3.0);
-        }
-
-        #[test]
-        fn sum_fails_on_invalid_axis() {
-            let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
-            let err = tensor.checked_sum(2).unwrap_err();
-            assert_eq!(err, IncompatibleTensorsError::InvalidAxis);
-        }
-
-        #[test]
-        #[should_panic(expected = "axis is out of bounds for operation")]
-        fn sum_panics_on_invalid_axis() {
-            let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
-            let _result = tensor.sum(2);
-        }
-
-        #[test]
-        fn sum_keep_dims_fails_on_invalid_axis() {
-            let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
-            let err = tensor.checked_sum_keep_dims(2).unwrap_err();
-            assert_eq!(err, IncompatibleTensorsError::InvalidAxis);
-        }
-
-        #[test]
-        #[should_panic(expected = "axis is out of bounds for operation")]
-        fn sum_keep_dims_panics_on_invalid_axis() {
-            let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
-            let _result = tensor.sum_keep_dims(2);
-        }
-
-        #[test]
-        fn mean_succeeds_on_valid_axis() {
-            let tensor =
-                TensorBase::<MockBackend>::from_vec(vec![3.0; 6], &[2, 3])
-                    .unwrap();
-            let result = tensor.checked_mean(1).unwrap();
-            assert_eq!(result.shape(), &[2]);
-            assert_eq!(result.inner.value, 3.0);
-        }
-
-        #[test]
-        fn mean_keep_dims_succeeds_on_valid_axis() {
-            let tensor =
-                TensorBase::<MockBackend>::from_vec(vec![3.0; 6], &[2, 3])
-                    .unwrap();
-            let result = tensor.checked_mean_keep_dims(1).unwrap();
-            assert_eq!(result.shape(), &[2, 1]);
-            assert_eq!(result.inner.value, 3.0);
-        }
-
-        #[test]
-        fn mean_fails_on_invalid_axis() {
-            let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
-            let err = tensor.checked_mean(2).unwrap_err();
-            assert_eq!(err, IncompatibleTensorsError::InvalidAxis);
-        }
-
-        #[test]
-        #[should_panic(expected = "axis is out of bounds for operation")]
-        fn mean_panics_on_invalid_axis() {
-            let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
-            let _result = tensor.mean(2);
-        }
-
-        #[test]
-        fn mean_keep_dims_fails_on_invalid_axis() {
-            let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
-            let err = tensor.checked_mean_keep_dims(2).unwrap_err();
-            assert_eq!(err, IncompatibleTensorsError::InvalidAxis);
-        }
-
-        #[test]
-        #[should_panic(expected = "axis is out of bounds for operation")]
-        fn mean_keep_dims_panics_on_invalid_axis() {
-            let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
-            let _result = tensor.mean_keep_dims(2);
         }
     }
 }
