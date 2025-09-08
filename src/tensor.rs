@@ -814,6 +814,27 @@ mod tests {
             }
         }
 
+        unsafe fn min(tensor: &Self::Tensor, axis: usize) -> Self::Tensor {
+            let mut new_shape = tensor.shape.clone();
+            let _ = new_shape.remove(axis);
+            Self::Tensor {
+                shape: new_shape,
+                value: tensor.value,
+            }
+        }
+
+        unsafe fn min_keep_dims(
+            tensor: &Self::Tensor,
+            axis: usize,
+        ) -> Self::Tensor {
+            let mut new_shape = tensor.shape.clone();
+            new_shape[axis] = 1;
+            Self::Tensor {
+                shape: new_shape,
+                value: tensor.value,
+            }
+        }
+
         unsafe fn mul(lhs: &Self::Tensor, rhs: &Self::Tensor) -> Self::Tensor {
             Self::Tensor {
                 shape: lhs.shape.to_owned(),

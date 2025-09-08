@@ -130,6 +130,25 @@ pub trait Backend {
         axis: usize,
     ) -> Self::Tensor;
 
+    /// Finds the minimum elements of a tensor's elements along a specified
+    /// axis, removing the dimension.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the `axis` is a valid dimension index for
+    /// the tensor (i.e., `axis < tensor.ndim()`).
+    unsafe fn min(tensor: &Self::Tensor, axis: usize) -> Self::Tensor;
+
+    /// Finds the minimum elements of a tensor's elements along a specified
+    /// axis, keeping the dimension with size 1.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the `axis` is a valid dimension index for
+    /// the tensor (i.e., `axis < tensor.ndim()`).
+    unsafe fn min_keep_dims(tensor: &Self::Tensor, axis: usize)
+    -> Self::Tensor;
+
     /// Multiplies two tensors element-wise.
     ///
     /// # Safety

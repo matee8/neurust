@@ -133,6 +133,8 @@ where
 
     impl_keep_dims_variant!(max_keep_dims, max);
 
+    impl_keep_dims_variant!(min_keep_dims, min);
+
     impl_binary_op!(add, +);
 
     impl_binary_op!(sub, -);
@@ -197,6 +199,14 @@ where
     unsafe fn mean(tensor: &Self::Tensor, axis: usize) -> Self::Tensor {
         // SAFETY: The caller guarantees non-zero dimensions.
         unsafe { tensor.mean_axis(Axis(axis)).unwrap_unchecked() }
+    }
+
+    #[inline]
+    unsafe fn min(tensor: &Self::Tensor, axis: usize) -> Self::Tensor {
+        tensor.map_axis(Axis(axis), |view| {
+            view.iter()
+                .fold(T::max_value(), |acc, &x| Extremum::min(acc, x))
+        })
     }
 
     #[inline]
@@ -548,4 +558,6 @@ mod tests {
     );
 
     test_axis_op!(max, max, max_keep_dims, vec![4.0, 5.0, 6.0], vec![3.0, 6.0]);
+
+    test_axis_op!(min, min, min_keep_dims, vec![1.0, 2.0, 3.0], vec![1.0, 4.0]);
 }
