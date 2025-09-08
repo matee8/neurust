@@ -238,6 +238,43 @@ mod tests {
         };
     }
 
+    macro_rules! test_axis_op {
+        (
+            $test_name:ident,
+            $op:ident,
+            $keep_dims_op:ident,
+            $expected_axis0:expr,
+            $expected_axis1:expr
+        ) => {
+            paste::paste! {
+                #[test]
+                fn [<ndarray_ $test_name _produces_correct_result>]() {
+                    let tensor = unsafe {
+                        NdarrayBackend::from_vec(vec![1., 2., 3., 4., 5., 6.], &[2, 3])
+                    };
+                    let result_0 = unsafe { NdarrayBackend::$op(&tensor, 0) };
+                    let result_1 = unsafe { NdarrayBackend::$op(&tensor, 1) };
+
+                    assert_eq!(result_0.shape(), &[3]);
+                    assert_eq!(result_0.into_raw_vec_and_offset().0, $expected_axis0);
+                    assert_eq!(result_1.shape(), &[2]);
+                    assert_eq!(result_1.into_raw_vec_and_offset().0, $expected_axis1);
+                }
+
+                #[test]
+                fn [<ndarray_ $test_name _keep_dims_produces_correct_result>]() {
+                    let tensor = unsafe {
+                        NdarrayBackend::from_vec(vec![1., 2., 3., 4., 5., 6.], &[2, 3])
+                    };
+                    let result_1 = unsafe { NdarrayBackend::$keep_dims_op(&tensor, 1) };
+
+                    assert_eq!(result_1.shape(), &[2, 1]);
+                    assert_eq!(result_1.into_raw_vec_and_offset().0, $expected_axis1);
+                }
+            }
+        };
+    }
+
     #[test]
     fn ndarray_zeros_has_correct_shape_and_values() {
         let shape = &[2, 3];
@@ -311,56 +348,6 @@ mod tests {
             transposed.into_raw_vec_and_offset().0,
             vec![1.0, 4.0, 2.0, 5.0, 3.0, 6.0]
         );
-    }
-
-    #[test]
-    fn ndarray_sum_produces_correct_result() {
-        let tensor = unsafe {
-            NdarrayBackend::from_vec(vec![1., 2., 3., 4., 5., 6.], &[2, 3])
-        };
-        let sum_0 = unsafe { NdarrayBackend::sum(&tensor, 0) };
-        let sum_1 = unsafe { NdarrayBackend::sum(&tensor, 1) };
-
-        assert_eq!(sum_0.shape(), &[3]);
-        assert_eq!(sum_0.into_raw_vec_and_offset().0, vec![5.0, 7.0, 9.0]);
-        assert_eq!(sum_1.shape(), &[2]);
-        assert_eq!(sum_1.into_raw_vec_and_offset().0, vec![6.0, 15.0]);
-    }
-
-    #[test]
-    fn ndarray_sum_keep_dims_produces_correct_result() {
-        let tensor = unsafe {
-            NdarrayBackend::from_vec(vec![1., 2., 3., 4., 5., 6.], &[2, 3])
-        };
-        let sum_1 = unsafe { NdarrayBackend::sum_keep_dims(&tensor, 1) };
-
-        assert_eq!(sum_1.shape(), &[2, 1]);
-        assert_eq!(sum_1.into_raw_vec_and_offset().0, vec![6.0, 15.0]);
-    }
-
-    #[test]
-    fn ndarray_mean_produces_correct_result() {
-        let tensor = unsafe {
-            NdarrayBackend::from_vec(vec![1., 2., 3., 4., 5., 6.], &[2, 3])
-        };
-        let mean_0 = unsafe { NdarrayBackend::mean(&tensor, 0) };
-        let mean_1 = unsafe { NdarrayBackend::mean(&tensor, 1) };
-
-        assert_eq!(mean_0.shape(), &[3]);
-        assert_eq!(mean_0.into_raw_vec_and_offset().0, vec![2.5, 3.5, 4.5]);
-        assert_eq!(mean_1.shape(), &[2]);
-        assert_eq!(mean_1.into_raw_vec_and_offset().0, vec![2.0, 5.0]);
-    }
-
-    #[test]
-    fn ndarray_mean_keep_dims_produces_correct_result() {
-        let tensor = unsafe {
-            NdarrayBackend::from_vec(vec![1., 2., 3., 4., 5., 6.], &[2, 3])
-        };
-        let mean_1 = unsafe { NdarrayBackend::mean_keep_dims(&tensor, 1) };
-
-        assert_eq!(mean_1.shape(), &[2, 1]);
-        assert_eq!(mean_1.into_raw_vec_and_offset().0, vec![2.0, 5.0]);
     }
 
     test_binary_op!(
@@ -449,5 +436,21 @@ mod tests {
         vec![10.0, 20.0, 30.0, 40.0],
         10.0,
         vec![1.0, 2.0, 3.0, 4.0]
+    );
+
+    test_axis_op!(
+        sum,
+        sum,
+        sum_keep_dims,
+        vec![5.0, 7.0, 9.0],
+        vec![6.0, 15.0]
+    );
+
+    test_axis_op!(
+        mean,
+        mean,
+        mean_keep_dims,
+        vec![2.5, 3.5, 4.5],
+        vec![2.0, 5.0]
     );
 }
