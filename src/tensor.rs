@@ -158,56 +158,6 @@ where
         })
     }
 
-    /// Calculates the mean of the tensor's elements along the specified axis,
-    /// removing that dimension.
-    ///
-    /// # Errors
-    ///
-    /// Returns an [`IncompatibleTensorsError::InvalidAxis`] if the axis is
-    /// out of bounds.
-    #[inline]
-    pub fn checked_mean(
-        &self,
-        axis: usize,
-    ) -> Result<Self, IncompatibleTensorsError> {
-        if axis >= self.ndim() {
-            return Err(IncompatibleTensorsError::InvalidAxis);
-        }
-
-        // SAFETY: We have verified that the axis is valid.
-        let inner = unsafe { B::mean(&self.inner, axis) };
-
-        Ok(Self {
-            inner,
-            _marker: PhantomData,
-        })
-    }
-
-    /// Calculates the mean of the tensor's elements along the specified axis,
-    /// keeping the dimension with size 1.
-    ///
-    /// # Errors
-    ///
-    /// Returns an [`IncompatibleTensorsError::InvalidAxis`] if the axis if out
-    /// of bounds.
-    #[inline]
-    pub fn checked_mean_keep_dims(
-        &self,
-        axis: usize,
-    ) -> Result<Self, IncompatibleTensorsError> {
-        if axis >= self.ndim() {
-            return Err(IncompatibleTensorsError::InvalidAxis);
-        }
-
-        // SAFETY: We have verified that the axis is valid.
-        let inner = unsafe { B::mean_keep_dims(&self.inner, axis) };
-
-        Ok(Self {
-            inner,
-            _marker: PhantomData,
-        })
-    }
-
     /// Performs element-wise multiplication between two tensors.
     ///
     /// # Errors
@@ -262,56 +212,6 @@ where
         other: &Self,
     ) -> Result<Self, IncompatibleTensorsError> {
         self.checked_binary_op(other, B::sub)
-    }
-
-    /// Sums the elements of the tensor along the specified axis, removing that
-    /// dimension.
-    ///
-    /// # Errors
-    ///
-    /// Returns an [`IncompatibleTensorsError::InvalidAxis`] if the axis is out
-    /// of bounds.
-    #[inline]
-    pub fn checked_sum(
-        &self,
-        axis: usize,
-    ) -> Result<Self, IncompatibleTensorsError> {
-        if axis >= self.ndim() {
-            return Err(IncompatibleTensorsError::InvalidAxis);
-        }
-
-        // SAFETY: We have verified that the axis is valid.
-        let inner = unsafe { B::sum(&self.inner, axis) };
-
-        Ok(Self {
-            inner,
-            _marker: PhantomData,
-        })
-    }
-
-    /// Sums the elements of the tensor along the specified axis, keeping the
-    /// dimension with size 1.
-    ///
-    /// # Errors
-    ///
-    /// Returns an [`IncompatibleTensorsError::InvalidAxis`] if the axis is out
-    /// of bounds.
-    #[inline]
-    pub fn checked_sum_keep_dims(
-        &self,
-        axis: usize,
-    ) -> Result<Self, IncompatibleTensorsError> {
-        if axis >= self.ndim() {
-            return Err(IncompatibleTensorsError::InvalidAxis);
-        }
-
-        // SAFETY: We have verified that the axis is valid.
-        let inner = unsafe { B::sum_keep_dims(&self.inner, axis) };
-
-        Ok(Self {
-            inner,
-            _marker: PhantomData,
-        })
     }
 
     /// Transpose a 2D tensor, swapping its axes.
@@ -383,42 +283,6 @@ where
             .expect("incompatible tensor shapes for matrix multiplication")
     }
 
-    /// Calculates the mean of the tensor's elements along the specified axis,
-    /// removing that dimension.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the axis is out of bounds for the tensor.
-    #[inline]
-    #[must_use]
-    #[expect(
-        clippy::expect_used,
-        reason = r#"The panic is documented, and end users could use the checked
-                    version instead, `checked_mean`."#
-    )]
-    pub fn mean(&self, axis: usize) -> Self {
-        self.checked_mean(axis)
-            .expect("axis is out of bounds for mean operation")
-    }
-
-    /// Calculates the mean of the tensor's elements along the specified axis,
-    /// keeping the dimension with size 1.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the axis is out of bounds for the tensor.
-    #[inline]
-    #[must_use]
-    #[expect(
-        clippy::expect_used,
-        reason = r#"The panic is documented, and end users could use the checked
-                    version instead, `checked_mean_keep_dims`."#
-    )]
-    pub fn mean_keep_dims(&self, axis: usize) -> Self {
-        self.checked_mean_keep_dims(axis)
-            .expect("axis is out of bounds for mean operation")
-    }
-
     /// Returns the number of dimensions of the tensor.
     #[inline]
     #[must_use]
@@ -470,42 +334,6 @@ where
     #[must_use]
     pub fn shape(&self) -> &[usize] {
         B::shape(&self.inner)
-    }
-
-    /// Sums the elements of the tensor along the specified axis, removing that
-    /// dimension
-    ///
-    /// # Panics
-    ///
-    /// Panics if the axis is out of bounds for the tensor.
-    #[inline]
-    #[must_use]
-    #[expect(
-        clippy::expect_used,
-        reason = r#"The panic is documented, and end users could use the checked
-                    version instead, `checked_sum`."#
-    )]
-    pub fn sum(&self, axis: usize) -> Self {
-        self.checked_sum(axis)
-            .expect("axis is out of bounds for sum operation")
-    }
-
-    /// Sums the elements of the tensor along a the specified axis, keeping the
-    /// dimension with size 1.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the axis is out of bounds for the tensor.
-    #[inline]
-    #[must_use]
-    #[expect(
-        clippy::expect_used,
-        reason = r#"The panic is documented, and end users could use the checked
-                    version instead, `checked_sum_keep_dims`."#
-    )]
-    pub fn sum_keep_dims(&self, axis: usize) -> Self {
-        self.checked_sum_keep_dims(axis)
-            .expect("axis is out of bounds for sum operation")
     }
 
     /// Transpose a 2D tensor, swapping its axes.
@@ -575,6 +403,37 @@ where
             .map_err(|_| ShapeError::ShapeOverflow)?;
 
         Ok(num_elements)
+    }
+
+    /// A generic helper function for operations that reduce a tensor along a
+    /// single axis.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`IncompatibleTensorsError::InvalidAxis`] if `axis` is out
+    /// of bounds for the tensor (i.e., `axis >= self.ndim()`).
+    ///
+    /// # Safety
+    ///
+    /// The provided `op` function is only called after `axis` has been
+    /// validated, fulfilling the safety contract of the backend's axis-based
+    /// methods.
+    fn checked_axis_op(
+        &self,
+        axis: usize,
+        op: unsafe fn(&B::Tensor, usize) -> B::Tensor,
+    ) -> Result<Self, IncompatibleTensorsError> {
+        if axis >= self.ndim() {
+            return Err(IncompatibleTensorsError::InvalidAxis);
+        }
+
+        // SAFETY: We have verified that the axis is valid.
+        let inner = unsafe { op(&self.inner, axis) };
+
+        Ok(Self {
+            inner,
+            _marker: PhantomData,
+        })
     }
 
     fn checked_binary_op(
@@ -675,6 +534,130 @@ impl_scalar_op!(Add, add, add_scalar, f32, f64, i8, i16, i32, i64, i128);
 impl_scalar_op!(Sub, sub, sub_scalar, f32, f64, i8, i16, i32, i64, i128);
 impl_scalar_op!(Mul, mul, mul_scalar, f32, f64, i8, i16, i32, i64, i128);
 impl_scalar_op!(Div, div, div_scalar, f32, f64, i8, i16, i32, i64, i128);
+
+macro_rules! impl_axis_op {
+    (
+        $(#[$checked_name_meta:meta])*
+        $checked_name:ident,
+        $backend_name:ident,
+
+        $(#[$name_meta:meta])*
+        $name:ident,
+
+        $(#[$checked_keep_dims_name_meta:meta])*
+        $checked_keep_dims_name:ident,
+        $backend_keep_dims_name:ident,
+
+        $(#[$keep_dims_name_meta:meta])*
+        $keep_dims_name:ident
+    ) => {
+        $(#[$checked_name_meta])*
+        #[inline]
+        pub fn $checked_name(
+            &self,
+            axis: usize,
+        ) -> Result<Self, IncompatibleTensorsError> {
+            self.checked_axis_op(axis, B::$backend_name)
+        }
+
+        $(#[$name_meta])*
+        #[inline]
+        #[must_use]
+        pub fn $name(&self, axis: usize) -> Self {
+            self.$checked_name(axis)
+                .expect("axis is out of bounds for operation")
+        }
+
+        $(#[$checked_keep_dims_name_meta])*
+        #[inline]
+        pub fn $checked_keep_dims_name(
+            &self,
+            axis: usize,
+        ) -> Result<Self, IncompatibleTensorsError> {
+            self.checked_axis_op(axis, B::$backend_keep_dims_name)
+        }
+
+        $(#[$keep_dims_name_meta])*
+        #[inline]
+        #[must_use]
+        pub fn $keep_dims_name(&self, axis: usize) -> Self {
+            self.$checked_keep_dims_name(axis)
+                .expect("axis is out of bounds for operation")
+        }
+    };
+}
+
+impl<B: Backend> TensorBase<B> {
+    impl_axis_op!(
+        /// Sums the elements of the tensor along the specified axis, removing
+        /// that dimension.
+        ///
+        /// # Errors
+        ///
+        /// Returns an [`IncompatibleTensorsError::InvalidAxis`] if the axis is
+        /// out of bounds.
+        checked_sum,
+        sum,
+        /// Sums the elements of the tensor along the specified axis, removing
+        /// that dimension
+        ///
+        /// # Panics
+        ///
+        /// Panics if the axis is out of bounds for the tensor.
+        sum,
+        /// Sums the elements of the tensor along the specified axis, keeping
+        /// the dimension with size 1.
+        ///
+        /// # Errors
+        ///
+        /// Returns an [`IncompatibleTensorsError::InvalidAxis`] if the axis is
+        /// out of bounds.
+        checked_sum_keep_dims,
+        sum_keep_dims,
+        /// Sums the elements of the tensor along a the specified axis, keeping
+        /// the dimension with size 1.
+        ///
+        /// # Panics
+        ///
+        /// Panics if the axis is out of bounds for the tensor.
+        sum_keep_dims
+    );
+
+    impl_axis_op!(
+        /// Calculates the mean of the tensor's elements along the specified
+        /// axis, removing that dimension.
+        ///
+        /// # Errors
+        ///
+        /// Returns an [`IncompatibleTensorsError::InvalidAxis`] if the axis is
+        /// out of bounds.
+        checked_mean,
+        mean,
+        /// Calculates the mean of the tensor's elements along the specified
+        /// axis, removing that dimension.
+        ///
+        /// # Panics
+        ///
+        /// Panics if the axis is out of bounds for the tensor.
+        mean,
+        /// Calculates the mean of the tensor's elements along the specified
+        /// axis, keeping the dimension with size 1.
+        ///
+        /// # Errors
+        ///
+        /// Returns an [`IncompatibleTensorsError::InvalidAxis`] if the axis if
+        /// out of bounds.
+        checked_mean_keep_dims,
+        mean_keep_dims,
+        /// Calculates the mean of the tensor's elements along the specified
+        /// axis, keeping the dimension with size 1.
+        ///
+        /// # Panics
+        ///
+        /// Panics if the axis is out of bounds for the tensor.
+        mean_keep_dims
+    );
+}
 
 #[cfg(test)]
 mod tests {
@@ -1209,7 +1192,7 @@ mod tests {
         }
 
         #[test]
-        #[should_panic(expected = "axis is out of bounds for sum operation")]
+        #[should_panic(expected = "axis is out of bounds for operation")]
         fn sum_panics_on_invalid_axis() {
             let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
             let _result = tensor.sum(2);
@@ -1223,7 +1206,7 @@ mod tests {
         }
 
         #[test]
-        #[should_panic(expected = "axis is out of bounds for sum operation")]
+        #[should_panic(expected = "axis is out of bounds for operation")]
         fn sum_keep_dims_panics_on_invalid_axis() {
             let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
             let _result = tensor.sum_keep_dims(2);
@@ -1257,7 +1240,7 @@ mod tests {
         }
 
         #[test]
-        #[should_panic(expected = "axis is out of bounds for mean operation")]
+        #[should_panic(expected = "axis is out of bounds for operation")]
         fn mean_panics_on_invalid_axis() {
             let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
             let _result = tensor.mean(2);
@@ -1271,7 +1254,7 @@ mod tests {
         }
 
         #[test]
-        #[should_panic(expected = "axis is out of bounds for mean operation")]
+        #[should_panic(expected = "axis is out of bounds for operation")]
         fn mean_keep_dims_panics_on_invalid_axis() {
             let tensor = TensorBase::<MockBackend>::zeros(&[2, 3]).unwrap();
             let _result = tensor.mean_keep_dims(2);
